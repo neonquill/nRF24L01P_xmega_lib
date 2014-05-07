@@ -183,7 +183,6 @@ loop(void) {
   //nordic_flush_tx_fifo();
   //nordic_clear_interrupts();
 
-#if 0
   data[0] = 33;
   data[1] = count;
   data[2] = 99;
@@ -193,11 +192,8 @@ loop(void) {
   count++;
 
   nordic_print_radio_config();
-#else
-  count++;
-#endif
 
-  //_delay_ms(1000);
+  _delay_ms(1000);
 }
 
 int

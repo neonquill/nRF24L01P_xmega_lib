@@ -152,9 +152,10 @@ loop(void) {
   char txt[32];
   uint8_t status;
   uint8_t len;
+  char b;
   static uint8_t count = 0;
 
-  //blink(1);
+  blink(1);
 
   if (nordic_data_ready()) {
     len = 3;
@@ -196,6 +197,16 @@ loop(void) {
 #else
   count++;
 #endif
+
+  /* Check for incoming serial data. */
+  /* XXX Create a flag for this. */
+  if (serial_get_byte(&b)) {
+    /* For now, only serial data is for the bootloader. */
+    if (b == 0x1B) {
+      /* Reset to start the bootloader. */
+      CCPWrite(&RST.CTRL, RST_SWRST_bm);
+    }
+  }
 
   //_delay_ms(1000);
 }

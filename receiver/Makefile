@@ -240,14 +240,14 @@ LDFLAGS += $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 #
 # Type: avrdude -c ?
 # to get a full listing.
-AVRDUDE_PROGRAMMER = avrisp2
-#AVRDUDE_PROGRAMMER = avr109
+#AVRDUDE_PROGRAMMER = avrisp2
+AVRDUDE_PROGRAMMER = avr109 -e
 
 #AVRDUDE_CONFIG = -C ~/work/avrdude_dwatson.conf
 
 # com1 = serial port. Use lpt1 to connect to parallel port.
-AVRDUDE_PORT = -P usb
-#AVRDUDE_PORT = -P /dev/tty.usbserial-A8008i2c -b 115200
+#AVRDUDE_PORT = -P usb
+AVRDUDE_PORT = -P /dev/tty.usbserial-A8008i2c -b 115200
 
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex

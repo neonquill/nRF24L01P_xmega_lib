@@ -109,9 +109,12 @@ setup_clock(void) {
 void
 nordic_setup(void) {
   uint8_t address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
+  uint8_t address2[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
   nordic_init();
   nordic_set_channel(1);
   nordic_setup_pipe(0, address, 5, 1, VARIABLE_PAYLOAD_LEN);
+  /* Set up a second pipe to receive firmware updates. */
+  nordic_setup_pipe(1, address2, 5, 1, VARIABLE_PAYLOAD_LEN);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -152,17 +155,25 @@ loop(void) {
   char txt[32];
   uint8_t status;
   uint8_t len;
+  uint8_t pipe;
+  uint8_t i;
   char b;
   static uint8_t count = 0;
 
   if (nordic_data_ready()) {
     blink(1);
 
-    len = 3;
+    len = sizeof(data);
     status = nordic_get_data(data, &len);
-    snprintf(txt, 32, "%d 0x%x * %d,%d,%d\r\n", count, status,
-             data[0], data[1], data[2]);
+    pipe = (status >> 1) & 0x7;
+
+    snprintf(txt, 32, "%d, 0x%x, %d * %d", count, status, pipe, data[0]);
     serial_write_string(txt);
+    for (i = 1; i < len; i++) {
+      snprintf(txt, 32, ",%d", data[i]);
+      serial_write_string(txt);
+    }
+    serial_write_string("\r\n");
     count++;
 
     nordic_clear_interrupts();

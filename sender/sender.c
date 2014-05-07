@@ -105,13 +105,15 @@ setup_clock(void) {
   DFLLRC32M.CTRL = DFLL_ENABLE_bm;
 }
 
+static uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
+static uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
 
 void
 nordic_setup(void) {
-  uint8_t address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
   nordic_init();
   nordic_set_channel(1);
-  nordic_setup_pipe(0, address, 5, 1, VARIABLE_PAYLOAD_LEN);
+  nordic_setup_pipe(0, broadcast_address, sizeof(broadcast_address), 1,
+                    VARIABLE_PAYLOAD_LEN);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -188,7 +190,25 @@ loop(void) {
   data[2] = 99;
   snprintf(txt, 32, "s: %d,%d,%d\r\n", data[0], data[1], data[2]);
   serial_write_string(txt);
+  nordic_set_tx_addr(broadcast_address, sizeof(broadcast_address));
+  nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
   nordic_write_data(data, 3);
+
+  // XXX Packets get lost if we don't wait...
+  _delay_ms(1000);
+
+  data[0] = 22;
+  data[1] = 88;
+  data[2] = count;
+  data[3] = 111;
+  snprintf(txt, 32, "s: %d,%d,%d,%d\r\n", data[0], data[1], data[2], data[3]);
+  serial_write_string(txt);
+  nordic_set_tx_addr(boot_address, sizeof(boot_address));
+  nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
+  nordic_write_data(data, 4);
+
+  nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
+
   count++;
 
   nordic_print_radio_config();

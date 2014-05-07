@@ -88,11 +88,6 @@ nordic_read_register(uint8_t address, uint8_t *value, uint8_t len) {
   return(status);
 }
 
-static void
-save_port0_address(uint8_t *addr, uint8_t len) {
-  // XXX Need to implement.
-}
-
 /* static */ uint8_t
 nordic_get_status(void) {
   uint8_t status;
@@ -138,6 +133,14 @@ nordic_set_channel(uint8_t channel) {
   } while ((channel != set_channel) && (count < 4));
 }
 
+uint8_t
+nordic_set_rx_addr(uint8_t *addr, uint8_t addr_len, uint8_t pipe) {
+  uint8_t status;
+
+  status = nordic_write_register(RX_ADDR_P0 + pipe, addr, addr_len);
+  return(status);
+}
+
 // XXX See footnote d on page 63 for restrictions on ack retransmit with
 // variable payloads.
 // XXX To transmit variable payload lengths, the transmitter must have
@@ -150,15 +153,8 @@ nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
     return;
   }
 
-  // We need to keep a copy of the address of pipe 0, just in case we
-  // decide to use auto-acknowledge.
-  if (pipe == 0) {
-    save_port0_address(addr, addr_len);
-  }
+  nordic_set_rx_addr(addr, addr_len, pipe);
 
-  // Send the address.
-  nordic_write_register(RX_ADDR_P0 + pipe, addr, addr_len);
-  
   // Update the bitmask of enabled addresses.
   en_rxaddr |= _BV(pipe);
   nordic_config_register(EN_RXADDR, en_rxaddr);
@@ -208,6 +204,14 @@ nordic_stop_listening(void) {
   // XXX Now read out the payload data?
 
   // XXX Power down?
+}
+
+uint8_t
+nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
+  uint8_t status;
+
+  status = nordic_write_register(TX_ADDR, addr, addr_len);
+  return(status);
 }
 
 uint8_t

@@ -154,7 +154,7 @@ loop(void) {
   uint8_t len;
   static uint8_t count = 0;
 
-  //blink(1);
+  blink(1);
 
   if (nordic_data_ready()) {
     len = 3;

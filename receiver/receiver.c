@@ -155,9 +155,9 @@ loop(void) {
   char b;
   static uint8_t count = 0;
 
-  blink(1);
-
   if (nordic_data_ready()) {
+    blink(1);
+
     len = 3;
     status = nordic_get_data(data, &len);
     snprintf(txt, 32, "0x%x * %d,%d,%d\r\n", status, data[0], data[1], data[2]);

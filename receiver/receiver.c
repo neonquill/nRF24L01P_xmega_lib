@@ -111,7 +111,7 @@ nordic_setup(void) {
   uint8_t address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
   nordic_init();
   nordic_set_channel(1);
-  nordic_setup_pipe(0, address, 5, 1, 3);
+  nordic_setup_pipe(0, address, 5, 1, VARIABLE_PAYLOAD_LEN);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -160,11 +160,14 @@ loop(void) {
 
     len = 3;
     status = nordic_get_data(data, &len);
-    snprintf(txt, 32, "0x%x * %d,%d,%d\r\n", status, data[0], data[1], data[2]);
+    snprintf(txt, 32, "%d 0x%x * %d,%d,%d\r\n", count, status,
+             data[0], data[1], data[2]);
     serial_write_string(txt);
+    count++;
 
     nordic_clear_interrupts();
     nordic_flush_tx_fifo();
+    nordic_flush_rx_fifo();
 
     /* Send a response. */
 #if 0
@@ -176,27 +179,14 @@ loop(void) {
     nordic_write_data(data, 3);
     nordic_start_listening();
 #endif
+
+    nordic_print_radio_config();
   }
 
-  //nordic_print_radio_config();
 
   /* To keep us from getting stuck. */
   //nordic_flush_tx_fifo();
   //nordic_clear_interrupts();
-
-#if 0
-  data[0] = 33;
-  data[1] = count;
-  data[2] = 99;
-  snprintf(txt, 32, "s: %d,%d,%d\r\n", data[0], data[1], data[2]);
-  serial_write_string(txt);
-  nordic_write_data(data, 3);
-  count++;
-
-  nordic_print_radio_config();
-#else
-  count++;
-#endif
 
   /* Check for incoming serial data. */
   /* XXX Create a flag for this. */

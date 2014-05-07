@@ -111,7 +111,7 @@ nordic_setup(void) {
   uint8_t address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
   nordic_init();
   nordic_set_channel(1);
-  nordic_setup_pipe(0, address, 5, 1, 3);
+  nordic_setup_pipe(0, address, 5, 1, VARIABLE_PAYLOAD_LEN);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...

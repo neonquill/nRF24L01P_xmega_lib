@@ -140,7 +140,8 @@ nordic_set_channel(uint8_t channel) {
 
 // XXX See footnote d on page 63 for restrictions on ack retransmit with
 // variable payloads.
-
+// XXX To transmit variable payload lengths, the transmitter must have
+// the DPL_P0 bit set.
 void
 nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
 		  uint8_t enable_aa, uint8_t payload_len) {
@@ -173,7 +174,7 @@ nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
   if (payload_len == VARIABLE_PAYLOAD_LEN) {
     dynpd |= _BV(pipe);
     nordic_config_register(DYNPD, dynpd);
-    feature |= EN_DPL;
+    feature |= _BV(EN_DPL);
     nordic_config_register(FEATURE, feature);
   } else {
     nordic_config_register(RX_PW_P0 + pipe, payload_len);
@@ -230,9 +231,15 @@ nordic_get_data(uint8_t *buf, uint8_t *len) {
   uint8_t payload_length;
   int8_t pipe;
   int i;
+#ifdef SERIAL_DEBUG
+  char txt[32];
+#endif
 
   // Make sure there's something in the buffer.
   if (!nordic_data_ready()) {
+#ifdef SERIAL_DEBUG
+    serial_write_string("No data!\r\n");
+#endif
     return(0xff);
   }
 
@@ -242,22 +249,38 @@ nordic_get_data(uint8_t *buf, uint8_t *len) {
   pipe = (status >> 1) & 0x7;
   payload_length = pipe_payload_len[pipe];
 
-  nordic_cs_low();
-
   // XXX If we're using dynamic payload length, need to check the length.
-  if ((feature & EN_DPL) && (payload_length == VARIABLE_PAYLOAD_LEN)) {
+  if ((feature & _BV(EN_DPL)) && (payload_length == VARIABLE_PAYLOAD_LEN)) {
+    nordic_cs_low();
     spi_transfer(R_RX_PL_WID);
     payload_length = spi_transfer(0xff);
+    nordic_cs_high();
+
+#ifdef SERIAL_DEBUG
+    snprintf(txt, 32, "Var len: %d\r\n", payload_length);
+    serial_write_string(txt);
+#endif
+  } else {
+#ifdef SERIAL_DEBUG
+    snprintf(txt, 32, "Fix len: %d\r\n", payload_length);
+    serial_write_string(txt);
+#endif
   }
 
   // If it's larger than 32 bytes, flusth the RX FIFO.
   if (payload_length > 32) {
+    nordic_cs_low();
     spi_transfer(FLUSH_RX);
     nordic_cs_high();
+#ifdef SERIAL_DEBUG
+    snprintf(txt, 32, "Too long!\r\n");
+    serial_write_string(txt);
+#endif
     return(0xff);
   }
 
   // Read the payload.
+  nordic_cs_low();
   status = spi_transfer(R_RX_PAYLOAD);
   for (i = 0; i < payload_length; i++) {
     if (i < *len) {
@@ -267,9 +290,9 @@ nordic_get_data(uint8_t *buf, uint8_t *len) {
       spi_transfer(0xff);
     }
   }
+  nordic_cs_high();
   *len = payload_length;
 
-  nordic_cs_high();
 
   return(status);
 
@@ -403,6 +426,14 @@ nordic_print_radio_config(void) {
 
   nordic_read_register(CONFIG, buffer, 1);
   snprintf(txt, 32, "CONFIG: %x\r\n", *buffer);
+  serial_write_string(txt);
+
+  nordic_read_register(DYNPD, buffer, 1);
+  snprintf(txt, 32, "DYNPD: %x\r\n", *buffer);
+  serial_write_string(txt);
+
+  nordic_read_register(FEATURE, buffer, 1);
+  snprintf(txt, 32, "FEAT: %x\r\n", *buffer);
   serial_write_string(txt);
 }
 #endif

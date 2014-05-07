@@ -177,8 +177,8 @@ loop(void) {
     count++;
 
     nordic_clear_interrupts();
-    nordic_flush_tx_fifo();
-    nordic_flush_rx_fifo();
+    //nordic_flush_tx_fifo();
+    //nordic_flush_rx_fifo();
 
     /* Send a response. */
 #if 0

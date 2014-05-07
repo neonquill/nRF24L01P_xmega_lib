@@ -194,9 +194,6 @@ loop(void) {
   nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
   nordic_write_data(data, 3);
 
-  // XXX Packets get lost if we don't wait...
-  _delay_ms(1000);
-
   data[0] = 22;
   data[1] = 88;
   data[2] = count;

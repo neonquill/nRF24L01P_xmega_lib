@@ -329,6 +329,9 @@ nordic_transfer_payload(uint8_t *buf, uint8_t len) {
 
 void
 nordic_write_data(uint8_t *buf, uint8_t len) {
+  uint8_t status;
+  uint8_t data;
+
   /* If we were listening, we need to return to Standby-I. */
   nordic_ce_low();
 
@@ -354,6 +357,17 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
 
   // XXX XXX XXX Read more about transmitting, not sure if this is right.
   // XXX Probably need to power down...
+
+  /* Spin until the transmit finishes. */
+  while (1) {
+    status = nordic_get_status();
+    if (((status & _BV(TX_DS)) != 0) || ((status & _BV(MAX_RT)) != 0)) {
+      data = _BV(TX_DS) | _BV(MAX_RT);
+      nordic_write_register(STATUS, &data, 1);
+      break;
+    }
+    _delay_ms(100);
+  }
 }
 
 // XXX Probably shouldn't be an externally visable call.

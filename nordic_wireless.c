@@ -206,6 +206,13 @@ nordic_stop_listening(void) {
   // XXX Power down?
 }
 
+/**
+ * Set the transmit address.
+ *
+ * NOTE: If using auto-acknowledge, the port 0 address needs to be set
+ * to the same address before transmitting.  This ensures that we
+ * receive the ack packet.
+ */
 uint8_t
 nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
   uint8_t status;

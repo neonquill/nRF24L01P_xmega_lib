@@ -180,8 +180,8 @@ loop(void) {
   //nordic_print_radio_config();
 
   /* To keep us from getting stuck. */
-  //nordic_flush_tx_fifo();
-  //nordic_clear_interrupts();
+  nordic_flush_tx_fifo();
+  nordic_clear_interrupts();
 
   data[0] = 33;
   data[1] = count;

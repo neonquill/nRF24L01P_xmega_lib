@@ -92,7 +92,7 @@ FORMAT = ihex
 TARGET = receiver
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = receiver.c ../nordic_wireless.c ../spi.c \
+SRC = receiver.c xbootapi.c ../nordic_wireless.c ../spi.c \
       ../xmega_lib/clksys_driver.c ../xmega_lib/twi_master_driver.c \
       ../xmega_lib/serial.c ../xmega_lib/usart_driver.c
 

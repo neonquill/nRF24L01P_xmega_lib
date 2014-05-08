@@ -2,8 +2,10 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <stdio.h>
+#include <string.h>
 #include "xmega_lib/clksys_driver.h"
 #include "xmega_lib/serial.h"
+#include "xbootapi.h"
 
 #include "nordic_wireless.h"
 
@@ -150,6 +152,82 @@ setup(void) {
 }
 
 void
+process_data(uint8_t data[], uint8_t len) {
+  static uint8_t page_buffer[SPM_PAGESIZE];
+  static uint16_t buffer_offset = 0;
+  static uint32_t addr = 0;
+  uint16_t target_crc, crc;
+
+  if (len < 1) {
+    return;
+  }
+
+  // Erase the memory.
+  if (data[0] == 'e') {
+    if (xboot_app_temp_erase() != XB_SUCCESS) {
+      serial_write_string("Erase failed!\r\n");
+      return;
+    }
+    buffer_offset = 0;
+  }
+
+  // Commit the block.
+  if (data[0] == 'm') {
+    // Pad the buffer.
+    if (buffer_offset < SPM_PAGESIZE) {
+      memset(&page_buffer[buffer_offset], 0xff, SPM_PAGESIZE - buffer_offset);
+    }
+
+    // XXX Check for error.
+    if (xboot_app_temp_write_page(addr, page_buffer, 0) != XB_SUCCESS) {
+      serial_write_string("Write page failed!\r\n");
+      return;
+    }
+    addr += SPM_PAGESIZE;
+    buffer_offset = 0;
+  }
+
+  // Copy the data into the page buffer.
+  if (data[0] == 'B') {
+    // Convert len to exclude the command.
+    len = len - 1;
+    if ((buffer_offset + len) > SPM_PAGESIZE) {
+      serial_write_string("Buffer overflow!\r\n");
+      return;
+    }
+    memcpy(&page_buffer[buffer_offset], &data[1], len);
+    buffer_offset += len;
+  }
+
+  // Finalize the data.
+  if (data[0] == 'w') {
+    if (len < 3) {
+      serial_write_string("Final msg err!\r\n");
+      return;
+    }
+
+    memcpy(&target_crc, &data[1], sizeof(target_crc));
+    xboot_app_temp_crc16(&crc);
+    if (crc != target_crc) {
+      serial_write_string("CRC error!\r\n");
+      return;
+    }
+
+    // Chec
+    if (xboot_install_firmware(target_crc) != XB_SUCCESS) {
+      serial_write_string("Install error!\r\n");
+      return;
+    }
+
+    serial_write_string("Rebooting!\r\n");
+    blink(4);
+
+    xboot_reset();
+  }
+}
+
+
+void
 loop(void) {
   uint8_t data[32];
   char txt[32];
@@ -176,6 +254,10 @@ loop(void) {
     serial_write_string("\r\n");
     count++;
 
+    if (pipe == 1) {
+      process_data(data, len);
+    }
+
     nordic_clear_interrupts();
     //nordic_flush_tx_fifo();
     //nordic_flush_rx_fifo();
@@ -191,7 +273,7 @@ loop(void) {
     nordic_start_listening();
 #endif
 
-    nordic_print_radio_config();
+    //nordic_print_radio_config();
   }
 
 

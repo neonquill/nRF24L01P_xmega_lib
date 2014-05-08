@@ -105,15 +105,16 @@ setup_clock(void) {
   DFLLRC32M.CTRL = DFLL_ENABLE_bm;
 }
 
-static uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
+// XXX static uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
 static uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
 
 void
 nordic_setup(void) {
   nordic_init();
   nordic_set_channel(1);
-  nordic_setup_pipe(0, broadcast_address, sizeof(broadcast_address), 1,
+  nordic_setup_pipe(0, boot_address, sizeof(boot_address), 1,
                     VARIABLE_PAYLOAD_LEN);
+  nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -123,6 +124,51 @@ nordic_setup(void) {
   serial_write_string("Fred\r\n");
   nordic_print_radio_config();
 #endif
+}
+
+void
+process_serial(char b) {
+  static char buffer[40];
+  char txt[32];
+  static int next_index = 0;
+  int i;
+
+  buffer[next_index] = b;
+  next_index++;
+
+  serial_write_string("process ");
+  serial_write('a' + b);
+  serial_write_string("\r\n");
+
+  if (buffer[0] == 'W' && next_index > 1) {
+    /* 0 1   2  3  4  next_index */
+    /* W len b1 b2 b3 */
+    if (next_index > buffer[1] + 1) {
+      /* To keep us from getting stuck. */
+      nordic_flush_tx_fifo();
+      nordic_clear_interrupts();
+
+      nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
+      snprintf(txt, 32, "s %d: ", buffer[1]);
+      serial_write_string(txt);
+      for (i = 0; i < buffer[1]; i++) {
+        snprintf(txt, 32, "%d,", buffer[i + 2]);
+        serial_write_string(txt);
+      }
+      serial_write_string("\r\n");
+
+      nordic_print_radio_config();
+
+      next_index = 0;
+      return;
+    }
+  }
+
+  /* Check for overflow. */
+  if (next_index >= 40) {
+    /* Throw away the buffer. */
+    next_index = 0;
+  }
 }
 
 void
@@ -152,11 +198,12 @@ void
 loop(void) {
   uint8_t data[32];
   char txt[32];
+  char b;
   uint8_t status;
   uint8_t len;
-  static uint8_t count = 0;
+  // static uint8_t count = 0;
 
-  blink(1);
+  // blink(1);
 
   if (nordic_data_ready()) {
     len = 3;
@@ -166,21 +213,11 @@ loop(void) {
 
     nordic_clear_interrupts();
     nordic_flush_tx_fifo();
-
-    /* Send a response. */
-#if 0
-    _delay_ms(500);
-    data[0] = 33;
-    data[2] = 99;
-    snprintf(txt, 32, "s: %d,%d,%d\r\n", data[0], data[1], data[2]);
-    serial_write_string(txt);
-    nordic_write_data(data, 3);
-    nordic_start_listening();
-#endif
   }
 
   //nordic_print_radio_config();
 
+#if 0
   /* To keep us from getting stuck. */
   nordic_flush_tx_fifo();
   nordic_clear_interrupts();
@@ -209,8 +246,13 @@ loop(void) {
   count++;
 
   nordic_print_radio_config();
+#endif
 
-  _delay_ms(1000);
+  if (serial_get_byte(&b)) {
+    process_serial(b);
+  }
+
+  //_delay_ms(1000);
 }
 
 int

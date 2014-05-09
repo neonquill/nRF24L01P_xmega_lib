@@ -114,7 +114,7 @@ nordic_setup(void) {
   nordic_set_channel(1);
   nordic_setup_pipe(0, boot_address, sizeof(boot_address), 1,
                     VARIABLE_PAYLOAD_LEN);
-  nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
+  nordic_set_tx_addr(boot_address, sizeof(boot_address));
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -132,13 +132,16 @@ process_serial(char b) {
   char txt[32];
   static int next_index = 0;
   int i;
+  uint8_t success;
 
   buffer[next_index] = b;
   next_index++;
 
+  /*
   serial_write_string("process ");
   serial_write('a' + b);
   serial_write_string("\r\n");
+  */
 
   if (buffer[0] == 'W' && next_index > 1) {
     /* 0 1   2  3  4  next_index */
@@ -148,16 +151,21 @@ process_serial(char b) {
       nordic_flush_tx_fifo();
       nordic_clear_interrupts();
 
-      nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
-      snprintf(txt, 32, "s %d: ", buffer[1]);
-      serial_write_string(txt);
-      for (i = 0; i < buffer[1]; i++) {
-        snprintf(txt, 32, "%d,", buffer[i + 2]);
+      success = nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
+      if (success) {
+        snprintf(txt, 32, "s %d: ", buffer[1]);
+        serial_write_string(txt);
+        for (i = 0; i < buffer[1]; i++) {
+          snprintf(txt, 32, "%d,", buffer[i + 2]);
+          serial_write_string(txt);
+        }
+        serial_write_string("\r\n");
+      } else {
+        snprintf(txt, 32, "fail %x\r\n", success);
         serial_write_string(txt);
       }
-      serial_write_string("\r\n");
 
-      nordic_print_radio_config();
+      //nordic_print_radio_config();
 
       next_index = 0;
       return;

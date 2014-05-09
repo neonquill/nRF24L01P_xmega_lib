@@ -151,12 +151,20 @@ setup(void) {
   nordic_start_listening();
 }
 
+#define DEBUG_CRC 0
+
 void
 process_data(uint8_t data[], uint8_t len) {
   static uint8_t page_buffer[SPM_PAGESIZE];
-  static uint16_t buffer_offset = 0;
   static uint32_t addr = 0;
+  static uint8_t page_committed = 0;
+  static uint16_t buffer_offset = 0;
   uint16_t target_crc, crc;
+#if DEBUG_CRC
+  uint8_t byte;
+  uint16_t i;
+#endif
+  char txt[32];
 
   if (len < 1) {
     return;
@@ -168,12 +176,22 @@ process_data(uint8_t data[], uint8_t len) {
       serial_write_string("Erase failed!\r\n");
       return;
     }
+    addr = 0;
+    page_committed = 0;
     buffer_offset = 0;
   }
 
   // Commit the block.
   if (data[0] == 'm') {
+    if (page_committed) {
+      serial_write_string("Page already committed!\r\n");
+      return;
+    }
+
     // Pad the buffer.
+    snprintf(txt, sizeof(txt), "pad at %x\r\n", buffer_offset);
+    serial_write_string(txt);
+
     if (buffer_offset < SPM_PAGESIZE) {
       memset(&page_buffer[buffer_offset], 0xff, SPM_PAGESIZE - buffer_offset);
     }
@@ -184,18 +202,24 @@ process_data(uint8_t data[], uint8_t len) {
       return;
     }
     addr += SPM_PAGESIZE;
+    page_committed = 1;
     buffer_offset = 0;
   }
 
   // Copy the data into the page buffer.
   if (data[0] == 'B') {
-    // Convert len to exclude the command.
-    len = len - 1;
+    // Convert len to exclude the command and length.
+    len -= 3;
+
+    // Grab the buffer offset from the packet.
+    memcpy(&buffer_offset, &data[1], sizeof(buffer_offset));
+
     if ((buffer_offset + len) > SPM_PAGESIZE) {
       serial_write_string("Buffer overflow!\r\n");
       return;
     }
-    memcpy(&page_buffer[buffer_offset], &data[1], len);
+    memcpy(&page_buffer[buffer_offset], &data[3], len);
+    page_committed = 0;
     buffer_offset += len;
   }
 
@@ -207,13 +231,27 @@ process_data(uint8_t data[], uint8_t len) {
     }
 
     memcpy(&target_crc, &data[1], sizeof(target_crc));
+#if DEBUG_CRC
+    serial_write_string("CRC\r\n");
+    for (i = 0, addr = XB_APP_TEMP_START; i < XB_APP_TEMP_SIZE; i++) {
+      byte = pgm_read_byte_near(addr);
+      if (byte != 0xff) {
+        snprintf(txt, sizeof(txt), "%x: %x\r\n", (uint16_t)addr, byte);
+        serial_write_string(txt);
+      }
+      addr++;
+    }
+    serial_write_string("END CRC\r\n");
+#endif
     xboot_app_temp_crc16(&crc);
     if (crc != target_crc) {
-      serial_write_string("CRC error!\r\n");
+      serial_write_string("CRC error! ");
+      snprintf(txt, sizeof(txt), "%x != %x\r\n", crc, target_crc);
+      serial_write_string(txt);
       return;
     }
 
-    // Chec
+    // Check
     if (xboot_install_firmware(target_crc) != XB_SUCCESS) {
       serial_write_string("Install error!\r\n");
       return;

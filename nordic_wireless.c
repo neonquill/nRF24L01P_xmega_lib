@@ -327,7 +327,7 @@ nordic_transfer_payload(uint8_t *buf, uint8_t len) {
   return(status);
 }
 
-void
+uint8_t
 nordic_write_data(uint8_t *buf, uint8_t len) {
   uint8_t status;
   uint8_t data;
@@ -368,6 +368,8 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
     }
     _delay_ms(100);
   }
+
+  return(status & _BV(TX_DS));
 }
 
 // XXX Probably shouldn't be an externally visable call.

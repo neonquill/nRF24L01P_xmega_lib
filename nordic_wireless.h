@@ -14,7 +14,7 @@ void nordic_disable_pipe(uint8_t pipe);
 void nordic_start_listening(void);
 void nordic_stop_listening(void);
 
-void nordic_write_data(uint8_t *buf, uint8_t len);
+uint8_t nordic_write_data(uint8_t *buf, uint8_t len);
 
 uint8_t nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len);
 uint8_t nordic_data_ready(void);

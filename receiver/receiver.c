@@ -287,7 +287,8 @@ process_incoming_data(void) {
     }
 
     // At this point, we know we have data.
-    blink(1);
+    // blink(1);
+    PORTA.OUTTGL = PIN1_bm;
 
     pipe = packet->pipe;
 

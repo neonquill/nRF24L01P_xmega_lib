@@ -266,13 +266,17 @@ process_data(uint8_t data[], uint8_t len) {
   }
 }
 
+#define DEBUG_PACKET_BYTES 0
+
 void
 process_incoming_data(void) {
   struct packet_data *packet;
-  char txt[32];
   uint8_t pipe;
-  uint8_t i;
   static uint8_t count = 0;
+#if DEBUG_PACKET_BYTES
+  uint8_t i;
+  char txt[32];
+#endif
 
   //nordic_print_radio_config();
 
@@ -287,6 +291,7 @@ process_incoming_data(void) {
 
     pipe = packet->pipe;
 
+#if DEBUG_PACKET_BYTES
     snprintf(txt, 32, "%d, %d * %d", count, pipe, packet->data[0]);
     serial_write_string(txt);
     for (i = 1; i < packet->len; i++) {
@@ -294,6 +299,8 @@ process_incoming_data(void) {
       serial_write_string(txt);
     }
     serial_write_string("\r\n");
+#endif
+
     count++;
 
     if (pipe == 1) {

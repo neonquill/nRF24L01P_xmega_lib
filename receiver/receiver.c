@@ -173,8 +173,9 @@ process_data(uint8_t data[], uint8_t len) {
     return;
   }
 
-  // Erase the memory.
+  // XXX Should probably make this a switch.
   if (data[0] == 'e') {
+    // Erase the memory.
     if (xboot_app_temp_erase() != XB_SUCCESS) {
       serial_write_string("Erase failed!\r\n");
       return;
@@ -182,10 +183,9 @@ process_data(uint8_t data[], uint8_t len) {
     addr = 0;
     page_committed = 0;
     buffer_offset = 0;
-  }
 
-  // Commit the block.
-  if (data[0] == 'm') {
+  } else if (data[0] == 'm') {
+    // Commit the block.
     if (page_committed) {
       serial_write_string("Page already committed!\r\n");
       return;
@@ -207,10 +207,10 @@ process_data(uint8_t data[], uint8_t len) {
     addr += SPM_PAGESIZE;
     page_committed = 1;
     buffer_offset = 0;
-  }
 
-  // Copy the data into the page buffer.
-  if (data[0] == 'B') {
+  } else if (data[0] == 'B') {
+    // Copy the data into the page buffer.
+
     // Convert len to exclude the command and length.
     len -= 3;
 
@@ -224,10 +224,9 @@ process_data(uint8_t data[], uint8_t len) {
     memcpy(&page_buffer[buffer_offset], &data[3], len);
     page_committed = 0;
     buffer_offset += len;
-  }
 
-  // Finalize the data.
-  if (data[0] == 'w') {
+  } else if (data[0] == 'w') {
+    // Finalize the data.
     if (len < 3) {
       serial_write_string("Final msg err!\r\n");
       return;

@@ -3,6 +3,7 @@
 #include <util/delay.h>
 #include <stdio.h>
 #include <string.h>
+
 #include "xmega_lib/clksys_driver.h"
 #include "xmega_lib/serial.h"
 #include "xbootapi.h"
@@ -64,9 +65,11 @@ setup_pins(void) {
   PORTE.OUT = 0x00;
 }
 
+volatile static uint8_t nordic_interrupt = 0;
+
 /* Interrupt routine for the nordic IRQ. */
 ISR(PORTB_INT0_vect) {
-  /* XXX */
+  nordic_interrupt = 1;
 }
 
 void
@@ -264,56 +267,54 @@ process_data(uint8_t data[], uint8_t len) {
   }
 }
 
-
 void
-loop(void) {
-  uint8_t data[32];
+process_incoming_data(void) {
+  struct packet_data *packet;
   char txt[32];
-  uint8_t status;
-  uint8_t len;
   uint8_t pipe;
   uint8_t i;
-  char b;
   static uint8_t count = 0;
 
-  if (nordic_data_ready()) {
+  //nordic_print_radio_config();
+
+  while (1) {
+    packet = nordic_get_packet();
+    if (packet == NULL) {
+      break;
+    }
+
+    // At this point, we know we have data.
     blink(1);
 
-    len = sizeof(data);
-    status = nordic_get_data(data, &len);
-    pipe = (status >> 1) & 0x7;
+    pipe = packet->pipe;
 
-    snprintf(txt, 32, "%d, 0x%x, %d * %d", count, status, pipe, data[0]);
+    snprintf(txt, 32, "%d, %d * %d", count, pipe, packet->data[0]);
     serial_write_string(txt);
-    for (i = 1; i < len; i++) {
-      snprintf(txt, 32, ",%d", data[i]);
+    for (i = 1; i < packet->len; i++) {
+      snprintf(txt, 32, ",%d", packet->data[i]);
       serial_write_string(txt);
     }
     serial_write_string("\r\n");
     count++;
 
     if (pipe == 1) {
-      process_data(data, len);
+      process_data(packet->data, packet->len);
     }
 
-    nordic_clear_interrupts();
     //nordic_flush_tx_fifo();
     //nordic_flush_rx_fifo();
-
-    /* Send a response. */
-#if 0
-    _delay_ms(500);
-    data[0] = 33;
-    data[2] = 99;
-    snprintf(txt, 32, "s: %d,%d,%d\r\n", data[0], data[1], data[2]);
-    serial_write_string(txt);
-    nordic_write_data(data, 3);
-    nordic_start_listening();
-#endif
-
-    //nordic_print_radio_config();
   }
+}
 
+void
+loop(void) {
+  char b;
+
+  if (nordic_interrupt) {
+    nordic_interrupt = 0;
+    nordic_process_interrupt();
+    process_incoming_data();
+  }
 
   /* To keep us from getting stuck. */
   //nordic_flush_tx_fifo();

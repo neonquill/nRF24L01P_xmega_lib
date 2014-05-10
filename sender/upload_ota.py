@@ -61,12 +61,12 @@ def send_packet(pkt):
             line = ser.readline().strip()
 
         if line.startswith(b's '):
-            #print("#Raw: ", line)
+            print("#Raw: ", line)
             #print("#XXX Sent cmd {}".format(cmd))
             break
         else:
             #print("#Raw: ", line)
-            #print("Retransmitting.")
+            print("Retransmitting.")
             pass
 
 

@@ -7,7 +7,7 @@
 #include "nordic_wireless.h"
 #include "xmega_lib/serial.h"
 
-// XXX Create interrupt to handle pin change on irq from radio.
+#include "nordic_wireless.h"
 
 // Local variables used to keep track of register values.
 static uint8_t en_rxaddr;
@@ -222,43 +222,47 @@ nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
 }
 
 uint8_t
-nordic_data_ready(void) {
+nordic_data_ready(uint8_t status) {
+  return((status & _BV(RX_DR)) != 0);
+}
+
+#if 0
+XXX This might not be correct.
+uint8_t
+nordic_rx_fifo_empty(void) {
   uint8_t fifo_status;
 
   nordic_read_register(FIFO_STATUS, &fifo_status, 1);
-  return(!(fifo_status & _BV(RX_EMPTY)));
+  return((fifo_status & _BV(RX_EMPTY)) == 0);
 }
+#endif
 
 /**
  * Get a packet from the radio.
  *
- * @param[out] buf  Buffer to store the data in.
- * @param[in,out] len  Length of the buffer (in), length of the payload (out).
- * @return Status register or 0xff on error.
+ * NOTE: Assumes that we've already verified that there is data to read.
+ *
+ * @param[in] status  Recent value of the status register.
+ * @param[out] packet  Pointer to a packet structure to store the data in.
+ * @return Boolean true if success.
  */
 uint8_t
-nordic_get_data(uint8_t *buf, uint8_t *len) {
-  uint8_t status;
+nordic_read_packet(uint8_t status, struct packet_data *packet) {
   uint8_t payload_length;
   int8_t pipe;
   int i;
+  uint8_t *buf;
 #ifdef SERIAL_DEBUG
   char txt[32];
 #endif
 
-  // Make sure there's something in the buffer.
-  if (!nordic_data_ready()) {
-#ifdef SERIAL_DEBUG
-    serial_write_string("No data!\r\n");
-#endif
-    return(0xff);
-  }
+  snprintf(txt, 32, "Stat: 0x%x\r\n", status);
+  serial_write_string(txt);
 
-  // XXX Probably don't need to re-fetch the status.
-  status = nordic_get_status();
   // The status register says which pipe the first packet came from.
   pipe = (status >> 1) & 0x7;
   payload_length = pipe_payload_len[pipe];
+  packet->pipe = pipe;
 
   // XXX If we're using dynamic payload length, need to check the length.
   if ((feature & _BV(EN_DPL)) && (payload_length == VARIABLE_PAYLOAD_LEN)) {
@@ -287,27 +291,20 @@ nordic_get_data(uint8_t *buf, uint8_t *len) {
     snprintf(txt, 32, "Too long!\r\n");
     serial_write_string(txt);
 #endif
-    return(0xff);
+    return(0);
   }
 
   // Read the payload.
   nordic_cs_low();
-  status = spi_transfer(R_RX_PAYLOAD);
-  for (i = 0; i < payload_length; i++) {
-    if (i < *len) {
+  spi_transfer(R_RX_PAYLOAD);
+  for (i = 0, buf = packet->data; i < payload_length; i++) {
       *buf = spi_transfer(0xff);
       buf++;
-    } else {
-      spi_transfer(0xff);
-    }
   }
   nordic_cs_high();
-  *len = payload_length;
+  packet->len = payload_length;
 
-
-  return(status);
-
-  // XXX Clear RX_DR IRQ - after everything is transfered?
+  return(1);
 }
 
 
@@ -398,6 +395,105 @@ nordic_flush_rx_fifo(void) {
   spi_transfer(FLUSH_RX);
 
   nordic_cs_high();
+}
+
+/* Buffer to store packets. */
+static struct packet_data g_packets[3];
+static int8_t g_first_valid_packet = -1;
+static int8_t g_next_empty_packet = 0;
+
+/**
+ * Process interrupt data.
+ *
+ * This function assumes that all data buffered in this function
+ * is consumed before being called again.
+ */
+void
+nordic_process_interrupt(void) {
+  uint8_t status, success;
+  uint8_t clear_bits = 0;
+
+  status = nordic_get_status();
+
+  if (status & _BV(MAX_RT)) {
+    // serial_write_string("Max retransmit\r\n");
+    clear_bits |= _BV(MAX_RT);
+  }
+
+  if (status & _BV(TX_DS)) {
+    // serial_write_string("Successful transfer\r\n");
+    clear_bits |= _BV(TX_DS);
+  }
+
+  /*
+   * From the data sheet:
+   *  The RX_DR IRQ is asserted by anew packet arrival event.  The
+   *  procedure for handling this interrupt should be:
+   *    1) read payload through SPI,
+   *    2) clear RX_DR IRQ,
+   *    3) read FIFO_STATUS to check if there are more payloads
+   *       available in RX FIFO,
+   *    4) if there are more data in RX FIFO, repeat from step 1).
+   */
+  if (status & _BV(RX_DR)) {
+    // serial_write_string("Data ready\r\n");
+    clear_bits |= _BV(RX_DR);
+
+    /* Read in all the received packets. */
+    while (g_next_empty_packet < 3) {
+      success = nordic_read_packet(status, &g_packets[g_next_empty_packet]);
+      if (success) {
+        g_next_empty_packet++;
+        if (g_first_valid_packet < 0) {
+          g_first_valid_packet = 0;
+        }
+      }
+
+      /* Clear the interrupts. */
+      nordic_write_register(STATUS, &clear_bits, 1);
+
+      /* Get the status for the next pipe value. */
+      status = nordic_get_status();
+      if ((status & 0x0e) == 0x0e) {
+        /* RX fifo is empty, can stop now. */
+        break;
+      }
+
+      /* Set the clear bits for the next round. */
+      clear_bits = _BV(RX_DR);
+    }
+  }
+}
+
+/**
+ * Get a cached packet.
+ *
+ * @return Pointer to a packet struct, or NULL.
+ */
+struct packet_data *
+nordic_get_packet(void) {
+  struct packet_data *p;
+
+  if (g_first_valid_packet < 0) {
+    return(NULL);
+  }
+
+  if ((g_first_valid_packet >= 3) ||
+      (g_first_valid_packet == g_next_empty_packet)) {
+    g_first_valid_packet = -1;
+    g_next_empty_packet = 0;
+    return(NULL);
+  }
+
+  p = &g_packets[g_first_valid_packet];
+
+  g_first_valid_packet++;
+  if (g_first_valid_packet >= 3) {
+    g_first_valid_packet = -1;
+    g_next_empty_packet = 0;
+  }
+
+  return(p);
 }
 
 #ifdef SERIAL_DEBUG

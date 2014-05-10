@@ -174,7 +174,24 @@ process_data(uint8_t data[], uint8_t len) {
   }
 
   // XXX Should probably make this a switch.
-  if (data[0] == 'e') {
+  if (data[0] == 'B') {
+    // Copy the data into the page buffer.
+
+    // Convert len to exclude the command and length.
+    len -= 3;
+
+    // Grab the buffer offset from the packet.
+    memcpy(&buffer_offset, &data[1], sizeof(buffer_offset));
+
+    if ((buffer_offset + len) > SPM_PAGESIZE) {
+      serial_write_string("Buffer overflow!\r\n");
+      return;
+    }
+    memcpy(&page_buffer[buffer_offset], &data[3], len);
+    page_committed = 0;
+    buffer_offset += len;
+
+  } else if (data[0] == 'e') {
     // Erase the memory.
     if (xboot_app_temp_erase() != XB_SUCCESS) {
       serial_write_string("Erase failed!\r\n");
@@ -207,23 +224,6 @@ process_data(uint8_t data[], uint8_t len) {
     addr += SPM_PAGESIZE;
     page_committed = 1;
     buffer_offset = 0;
-
-  } else if (data[0] == 'B') {
-    // Copy the data into the page buffer.
-
-    // Convert len to exclude the command and length.
-    len -= 3;
-
-    // Grab the buffer offset from the packet.
-    memcpy(&buffer_offset, &data[1], sizeof(buffer_offset));
-
-    if ((buffer_offset + len) > SPM_PAGESIZE) {
-      serial_write_string("Buffer overflow!\r\n");
-      return;
-    }
-    memcpy(&page_buffer[buffer_offset], &data[3], len);
-    page_committed = 0;
-    buffer_offset += len;
 
   } else if (data[0] == 'w') {
     // Finalize the data.

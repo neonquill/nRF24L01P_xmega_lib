@@ -237,6 +237,8 @@ nordic_rx_fifo_empty(void) {
 }
 #endif
 
+#define DEBUG_READ 0
+
 /**
  * Get a packet from the radio.
  *
@@ -252,11 +254,11 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
   int8_t pipe;
   int i;
   uint8_t *buf;
-#ifdef SERIAL_DEBUG
+#if DEBUG_READ
   char txt[32];
 #endif
 
-#ifdef SERIAL_DEBUG
+#if DEBUG_READ
   snprintf(txt, 32, "Stat: 0x%x\r\n", status);
   serial_write_string(txt);
 #endif
@@ -273,12 +275,12 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
     payload_length = spi_transfer(0xff);
     nordic_cs_high();
 
-#ifdef SERIAL_DEBUG
+#if DEBUG_READ
     snprintf(txt, 32, "Var len: %d\r\n", payload_length);
     serial_write_string(txt);
 #endif
   } else {
-#ifdef SERIAL_DEBUG
+#if DEBUG_READ
     snprintf(txt, 32, "Fix len: %d\r\n", payload_length);
     serial_write_string(txt);
 #endif
@@ -289,7 +291,7 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
     nordic_cs_low();
     spi_transfer(FLUSH_RX);
     nordic_cs_high();
-#ifdef SERIAL_DEBUG
+#if DEBUG_READ
     snprintf(txt, 32, "Too long!\r\n");
     serial_write_string(txt);
 #endif

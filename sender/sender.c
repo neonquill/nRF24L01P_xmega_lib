@@ -126,12 +126,16 @@ nordic_setup(void) {
 #endif
 }
 
+#define DEBUG_PACKET_BYTES 0
+
 void
 process_serial(char b) {
   static char buffer[40];
+#if DEBUG_PACKET_BYTES
   char txt[32];
-  static int next_index = 0;
   int i;
+#endif
+  static int next_index = 0;
   uint8_t success;
 
   buffer[next_index] = b;
@@ -153,16 +157,20 @@ process_serial(char b) {
 
       success = nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
       if (success) {
-        snprintf(txt, 32, "s %d: ", buffer[1]);
+#if DEBUG_PACKET_BYTES
+        snprintf(txt, 32, "success %d: ", buffer[1]);
         serial_write_string(txt);
         for (i = 0; i < buffer[1]; i++) {
           snprintf(txt, 32, "%d,", buffer[i + 2]);
           serial_write_string(txt);
         }
+
         serial_write_string("\r\n");
+#else
+        serial_write_string("success\r\n");
+#endif
       } else {
-        snprintf(txt, 32, "fail %x\r\n", success);
-        serial_write_string(txt);
+        serial_write_string("fail\r\n");
       }
 
       //nordic_print_radio_config();

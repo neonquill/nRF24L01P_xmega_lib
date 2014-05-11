@@ -60,8 +60,8 @@ def send_packet(pkt):
         while not line:
             line = ser.readline().strip()
 
-        if line.startswith(b's '):
-            print("#Raw: ", line)
+        if line.startswith(b'success'):
+            #print("#Raw: ", line)
             #print("#XXX Sent cmd {}".format(cmd))
             break
         else:

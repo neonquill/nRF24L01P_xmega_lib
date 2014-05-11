@@ -204,15 +204,18 @@ setup(void) {
 
 void
 loop(void) {
+  char b;
+#if 0
   uint8_t data[32];
   char txt[32];
-  char b;
   uint8_t status;
   uint8_t len;
+#endif
   // static uint8_t count = 0;
 
   // blink(1);
 
+#if 0
   if (nordic_data_ready()) {
     len = 3;
     status = nordic_get_data(data, &len);
@@ -222,6 +225,7 @@ loop(void) {
     nordic_clear_interrupts();
     nordic_flush_tx_fifo();
   }
+#endif
 
   //nordic_print_radio_config();
 

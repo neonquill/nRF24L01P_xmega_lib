@@ -7,6 +7,7 @@ import intelhex
 import array
 import progressbar
 
+# crc_table and crc16 generated from pycrc.
 # ./pycrc.py --model crc-16 --algorithm table-driven --generate c
 crc_table = [
     0x0000, 0xc0c1, 0xc181, 0x0140, 0xc301, 0x03c0, 0x0280, 0xc241,
@@ -75,115 +76,122 @@ def send_packet(pkt):
 
     return retransmits
 
+def main(argv = None):
+    if argv is None:
+        argv = sys.argv
 
-ser = serial.Serial('/dev/tty.usbserial-A40188LY', 115200, timeout = 1)
+    ser = serial.Serial('/dev/tty.usbserial-A40188LY', 115200, timeout = 1)
 
-#pkt = struct.pack('bbb', 24, 36, 43)
-#send_packet(pkt)
-#sys.exit(0)
+    #pkt = struct.pack('bbb', 24, 36, 43)
+    #send_packet(pkt)
+    #sys.exit(0)
 
-filename = '../receiver/receiver.hex'
-raw_data = intelhex.IntelHex(filename).tobinarray()
-#raw_data = bytes([1, 2, 3])
+    filename = '../receiver/receiver.hex'
+    raw_data = intelhex.IntelHex(filename).tobinarray()
+    #raw_data = bytes([1, 2, 3])
 
-# XXX Grab this from the chip.
-app_section_size = 32768
-app_temp_size = app_section_size // 2
+    # XXX Grab this from the chip.
+    app_section_size = 32768
+    app_temp_size = app_section_size // 2
 
-# Must pad out the crc calculation with 0xff up to the mem size.
-num_pad_bytes = app_temp_size - len(raw_data)
-pad_data = array.array('B', [0xff] * num_pad_bytes)
-crc = crc16(raw_data + pad_data)
+    # Must pad out the crc calculation with 0xff up to the mem size.
+    num_pad_bytes = app_temp_size - len(raw_data)
+    pad_data = array.array('B', [0xff] * num_pad_bytes)
+    crc = crc16(raw_data + pad_data)
 
-#with open('../blink_test/blink.bin', 'wb') as f:
-#    for b in raw_data:
-#        f.write(bytes([b]))
-#        #print(hex(b))
+    #with open('../blink_test/blink.bin', 'wb') as f:
+    #    for b in raw_data:
+    #        f.write(bytes([b]))
+    #        #print(hex(b))
 
-print("Transmitting {}: {} bytes, {:x} crc".format(filename, len(raw_data),
-                                                    crc))
+    print("Transmitting {}: {} bytes, {:x} crc".format(filename, len(raw_data),
+                                                       crc))
 
-# Flush the serial buffer.
-while True:
-    line = ser.readline().strip()
-    if not line:
-        break
-    print("#Raw: ", line)
+    # Flush the serial buffer.
+    while True:
+        line = ser.readline().strip()
+        if not line:
+            break
+            print("#Raw: ", line)
 
-print("Attempting to synchronize!")
-# First, send characters until we get a '?'.
-while True:
-    ser.write(b'\0')
-    line = ser.readline()
-    print("#Raw q: ", line)
-    if line == b'?\r\n':
-        break
+    print("Attempting to synchronize!")
+    # First, send characters until we get a '?'.
+    while True:
+        ser.write(b'\0')
+        line = ser.readline()
+        print("#Raw q: ", line)
+        if line == b'?\r\n':
+            break
 
-count = 0
-while True:
-    count += 1
-    cmd = b'p' + struct.pack('b', count)
-    response = b'P' + struct.pack('b', count)
+    count = 0
+    while True:
+        count += 1
+        cmd = b'p' + struct.pack('b', count)
+        response = b'P' + struct.pack('b', count)
 
-    print("Sending ", cmd)
-    ser.write(cmd)
-    line = ser.readline().strip()
-    print("#Raw r: ", line)
+        print("Sending ", cmd)
+        ser.write(cmd)
+        line = ser.readline().strip()
+        print("#Raw r: ", line)
 
-    if line == response:
-        print("Synchronized!");
-        break
-    else:
-        while True:
-            line = ser.readline().strip()
-            if not line:
-                break
-            print("#Raw f: ", line)
+        if line == response:
+            print("Synchronized!");
+            break
+        else:
+            while True:
+                line = ser.readline().strip()
+                if not line:
+                    break
+                    print("#Raw f: ", line)
 
 
-total_retransmits = 0
+    total_retransmits = 0
 
-# Erase.
-total_retransmits += send_packet(b"e")
+    # Erase.
+    total_retransmits += send_packet(b"e")
 
-# Send the data.
-page_size = 256
-chunk_size = 29
+    # Send the data.
+    page_size = 256
+    chunk_size = 29
 
-total_len = len(raw_data)
-transmitted = 0
+    total_len = len(raw_data)
+    transmitted = 0
 
-widgets = ['Transferring: ',
-           progressbar.widgets.Percentage(), ' ',
-           progressbar.widgets.Bar(), ' ',
-           progressbar.widgets.FileTransferSpeed(), ' ',
-           progressbar.widgets.ETA()]
-pbar = progressbar.ProgressBar(widgets = widgets, maxval = total_len)
-pbar.start()
+    widgets = ['Transferring: ',
+               progressbar.widgets.Percentage(), ' ',
+               progressbar.widgets.Bar(), ' ',
+               progressbar.widgets.FileTransferSpeed(), ' ',
+               progressbar.widgets.ETA()]
+    pbar = progressbar.ProgressBar(widgets = widgets, maxval = total_len)
+    pbar.start()
 
-pages = [raw_data[i:i + page_size]
-          for i in range(0, len(raw_data), page_size)]
-for page in pages:
-    page_offset = 0
-    chunks = [page[i:i + chunk_size]
-              for i in range(0, len(page), chunk_size)]
-    for chunk in chunks:
-        # Send a single chunk.
-        total_retransmits += send_packet(b"B" +
-                                         struct.pack('<H', page_offset) + chunk)
-        page_offset += len(chunk)
+    pages = [raw_data[i:i + page_size]
+             for i in range(0, len(raw_data), page_size)]
+    for page in pages:
+        page_offset = 0
+        chunks = [page[i:i + chunk_size]
+                  for i in range(0, len(page), chunk_size)]
+        for chunk in chunks:
+            # Send a single chunk.
+            total_retransmits += send_packet(b"B" +
+                                             struct.pack('<H', page_offset) +
+                                             chunk)
+            page_offset += len(chunk)
 
-        transmitted += len(chunk)
-        #print("Transmitted {} of {}".format(transmitted, total_len))
-        pbar.update(transmitted)
+            transmitted += len(chunk)
+            #print("Transmitted {} of {}".format(transmitted, total_len))
+            pbar.update(transmitted)
 
-    # Commit this page.
-    total_retransmits += send_packet(b"m")
+        # Commit this page.
+        total_retransmits += send_packet(b"m")
 
-pbar.finish()
+    pbar.finish()
 
-# Commit the data.
-pkt = b"w" + struct.pack('<H', crc)
-total_retransmits += send_packet(pkt)
+    # Commit the data.
+    pkt = b"w" + struct.pack('<H', crc)
+    total_retransmits += send_packet(pkt)
 
-print("Retransmitted {} times.".format(total_retransmits))
+    print("Retransmitted {} times.".format(total_retransmits))
+
+if __name__ == "__main__":
+    sys.exit(main())

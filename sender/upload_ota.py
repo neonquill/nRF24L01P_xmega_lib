@@ -5,6 +5,7 @@ import serial
 import struct
 import intelhex
 import array
+import progressbar
 
 # ./pycrc.py --model crc-16 --algorithm table-driven --generate c
 crc_table = [
@@ -53,6 +54,8 @@ def crc16(data):
     return (crc & 0xffff)
 
 def send_packet(pkt):
+    retransmits = 0
+
     while True:
         cmd = b'W' + struct.pack('B', len(pkt)) + pkt
         ser.write(cmd)
@@ -61,13 +64,16 @@ def send_packet(pkt):
             line = ser.readline().strip()
 
         if line.startswith(b'success'):
-            print("#Raw: ", line)
+            #print("#Raw: ", line)
             #print("#XXX Sent cmd {}".format(cmd))
             break
         else:
-            print("#Raw: ", line)
-            print("Retransmitting.")
+            #print("#Raw: ", line)
+            #print("Retransmitting.")
+            retransmits += 1
             pass
+
+    return retransmits
 
 
 ser = serial.Serial('/dev/tty.usbserial-A40188LY', 115200, timeout = 1)
@@ -134,8 +140,11 @@ while True:
                 break
             print("#Raw f: ", line)
 
+
+total_retransmits = 0
+
 # Erase.
-send_packet(b"e")
+total_retransmits += send_packet(b"e")
 
 # Send the data.
 page_size = 256
@@ -143,6 +152,9 @@ chunk_size = 29
 
 total_len = len(raw_data)
 transmitted = 0
+
+pbar = progressbar.ProgressBar(maxval = total_len)
+pbar.start()
 
 pages = [raw_data[i:i + page_size]
           for i in range(0, len(raw_data), page_size)]
@@ -152,15 +164,21 @@ for page in pages:
               for i in range(0, len(page), chunk_size)]
     for chunk in chunks:
         # Send a single chunk.
-        send_packet(b"B" + struct.pack('<H', page_offset) + chunk)
+        total_retransmits += send_packet(b"B" +
+                                         struct.pack('<H', page_offset) + chunk)
         page_offset += len(chunk)
 
         transmitted += len(chunk)
-        print("Transmitted {} of {}".format(transmitted, total_len))
+        #print("Transmitted {} of {}".format(transmitted, total_len))
+        pbar.update(transmitted)
 
     # Commit this page.
-    send_packet(b"m")
+    total_retransmits += send_packet(b"m")
+
+pbar.finish()
 
 # Commit the data.
 pkt = b"w" + struct.pack('<H', crc)
-send_packet(pkt)
+total_retransmits += send_packet(pkt)
+
+print("Retransmitted {} times.".format(total_retransmits))

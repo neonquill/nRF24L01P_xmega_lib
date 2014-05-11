@@ -9,37 +9,56 @@
 
 #include "nordic_wireless.h"
 
-// Local variables used to keep track of register values.
+/* Local variables used to keep track of register values. */
 static uint8_t en_rxaddr;
 static uint8_t en_aa = 0x00;
 static uint8_t dynpd = 0x00;
 static uint8_t feature = 0x00;
 
-// Keep track of the packet size per pipe.
+/* Keep track of the packet size per pipe. */
 static uint8_t pipe_payload_len[6] = {0};
 
 // XXX Need to pass in the chip select pin into this library.
+/**
+ * Simple wrapper to set the nordic chip select pin low.
+ */
 static void
 nordic_cs_low(void) {
   PORTA.OUTCLR = PIN6_bm;
 }
 
+/**
+ * Simple wrapper to set the nordic chip select pin high.
+ */
 static void
 nordic_cs_high(void) {
   PORTA.OUTSET = PIN6_bm;
 }
 
 // XXX Need to pass in the chip enable pin into this library.
+/**
+ * Simple wrapper to set the nordic chip enable pin low.
+ */
 static void
 nordic_ce_low(void) {
   PORTA.OUTCLR = PIN5_bm;
 }
 
+/**
+ * Simple wrapper to set the nordic chip enable pin high.
+ */
 static void
 nordic_ce_high(void) {
   PORTA.OUTSET = PIN5_bm;
 }
 
+/**
+ * Set the value of a single byte register.
+ *
+ * @param[in] address  Address of the register.
+ * @param[in] value  Value to set the register to.
+ * @return  The value of the status register.
+ */
 static uint8_t
 nordic_config_register(uint8_t address, uint8_t value) {
   uint8_t status;
@@ -54,6 +73,14 @@ nordic_config_register(uint8_t address, uint8_t value) {
   return(status);
 }
 
+/**
+ * Set the value of a multiple byte register.
+ *
+ * @param[in] address  Address of the register.
+ * @param[in] value  Pointer to an array of values.
+ * @param[in] len  Length of the value array.
+ * @return  The value of the status register.
+ */
 static uint8_t
 nordic_write_register(uint8_t address, uint8_t *value, uint8_t len) {
   uint8_t status;
@@ -71,6 +98,14 @@ nordic_write_register(uint8_t address, uint8_t *value, uint8_t len) {
   return(status);
 }
 
+/**
+ * Get the value of a multiple byte register.
+ *
+ * @param[in] address  Address of the register.
+ * @param[out] value  Pointer to a storage array for the data.
+ * @param[in] len  Number of bytes to read.
+ * @return  The value of the status register.
+ */
 static uint8_t
 nordic_read_register(uint8_t address, uint8_t *value, uint8_t len) {
   uint8_t status;
@@ -88,13 +123,18 @@ nordic_read_register(uint8_t address, uint8_t *value, uint8_t len) {
   return(status);
 }
 
-/* static */ uint8_t
+/**
+ * Get the value of the status register.
+ *
+ * @return  The value of the status register.
+ */
+static uint8_t
 nordic_get_status(void) {
   uint8_t status;
 
   nordic_cs_low();
 
-  // A null command will get the current status.
+  /* A null command will get the current status. */
   status = spi_transfer(0xff);
 
   nordic_cs_high();

@@ -29,7 +29,6 @@ struct packet_data *nordic_get_packet(void);
 void nordic_process_interrupt(void);
 
 /* XXX Delete these? */
-uint8_t nordic_get_status(void);
 #ifdef SERIAL_DEBUG
 void nordic_print_radio_config(void);
 #endif

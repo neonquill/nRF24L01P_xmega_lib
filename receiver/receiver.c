@@ -209,7 +209,7 @@ process_data(uint8_t data[], uint8_t len) {
     buffer_offset = 0;
 
   } else if (data[0] == 'm') {
-    snprintf(txt, sizeof(txt), "m off: %x\r\n", buffer_offset);
+    snprintf(txt, sizeof(txt), "m off: %d\r\n", buffer_offset);
     serial_write_string(txt);
 
     // Commit the block.
@@ -219,10 +219,11 @@ process_data(uint8_t data[], uint8_t len) {
     }
 
     // Pad the buffer.
-    snprintf(txt, sizeof(txt), "pad at %x\r\n", buffer_offset);
-    serial_write_string(txt);
-
     if (buffer_offset < SPM_PAGESIZE) {
+      snprintf(txt, sizeof(txt), "pad %d bytes\r\n",
+               SPM_PAGESIZE - buffer_offset);
+      serial_write_string(txt);
+
       memset(&page_buffer[buffer_offset], 0xff, SPM_PAGESIZE - buffer_offset);
     }
 

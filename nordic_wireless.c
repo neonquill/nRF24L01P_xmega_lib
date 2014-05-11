@@ -256,8 +256,10 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
   char txt[32];
 #endif
 
+#ifdef SERIAL_DEBUG
   snprintf(txt, 32, "Stat: 0x%x\r\n", status);
   serial_write_string(txt);
+#endif
 
   // The status register says which pipe the first packet came from.
   pipe = (status >> 1) & 0x7;

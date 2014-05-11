@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import argparse
 import serial
 import struct
 import intelhex
@@ -54,7 +55,7 @@ def crc16(data):
 
     return (crc & 0xffff)
 
-def send_packet(pkt):
+def send_packet(ser, pkt):
     retransmits = 0
 
     while True:
@@ -76,36 +77,8 @@ def send_packet(pkt):
 
     return retransmits
 
-def main(argv = None):
-    if argv is None:
-        argv = sys.argv
-
+def serial_connect(config):
     ser = serial.Serial('/dev/tty.usbserial-A40188LY', 115200, timeout = 1)
-
-    #pkt = struct.pack('bbb', 24, 36, 43)
-    #send_packet(pkt)
-    #sys.exit(0)
-
-    filename = '../receiver/receiver.hex'
-    raw_data = intelhex.IntelHex(filename).tobinarray()
-    #raw_data = bytes([1, 2, 3])
-
-    # XXX Grab this from the chip.
-    app_section_size = 32768
-    app_temp_size = app_section_size // 2
-
-    # Must pad out the crc calculation with 0xff up to the mem size.
-    num_pad_bytes = app_temp_size - len(raw_data)
-    pad_data = array.array('B', [0xff] * num_pad_bytes)
-    crc = crc16(raw_data + pad_data)
-
-    #with open('../blink_test/blink.bin', 'wb') as f:
-    #    for b in raw_data:
-    #        f.write(bytes([b]))
-    #        #print(hex(b))
-
-    print("Transmitting {}: {} bytes, {:x} crc".format(filename, len(raw_data),
-                                                       crc))
 
     # Flush the serial buffer.
     while True:
@@ -144,13 +117,33 @@ def main(argv = None):
                     break
                     print("#Raw f: ", line)
 
+    return ser
+
+def read_data(config):
+    raw_data = intelhex.IntelHex(config.filename).tobinarray()
+
+    # XXX Grab this from the chip.
+    app_section_size = 32768
+    app_temp_size = app_section_size // 2
+
+    # Must pad out the crc calculation with 0xff up to the mem size.
+    num_pad_bytes = app_temp_size - len(raw_data)
+    pad_data = array.array('B', [0xff] * num_pad_bytes)
+    crc = crc16(raw_data + pad_data)
+
+    return (raw_data, crc)
+
+def send_data(config, ser, raw_data, crc):
+    print("Transmitting {}: {} bytes, {:x} crc"
+          .format(config.filename, len(raw_data), crc))
 
     total_retransmits = 0
 
     # Erase.
-    total_retransmits += send_packet(b"e")
+    total_retransmits += send_packet(ser, b"e")
 
     # Send the data.
+    # XXX Get the page size from the device.
     page_size = 256
     chunk_size = 29
 
@@ -173,7 +166,8 @@ def main(argv = None):
                   for i in range(0, len(page), chunk_size)]
         for chunk in chunks:
             # Send a single chunk.
-            total_retransmits += send_packet(b"B" +
+            total_retransmits += send_packet(ser,
+                                             b"B" +
                                              struct.pack('<H', page_offset) +
                                              chunk)
             page_offset += len(chunk)
@@ -183,15 +177,37 @@ def main(argv = None):
             pbar.update(transmitted)
 
         # Commit this page.
-        total_retransmits += send_packet(b"m")
+        total_retransmits += send_packet(ser, b"m")
 
     pbar.finish()
 
     # Commit the data.
     pkt = b"w" + struct.pack('<H', crc)
-    total_retransmits += send_packet(pkt)
+    total_retransmits += send_packet(ser, pkt)
 
     print("Retransmitted {} times.".format(total_retransmits))
+
+def parse_args(argv):
+    description = 'Upload firmware over the air.'
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('--partno', '-p',
+                        help = 'AVR device.')
+    parser.add_argument('filename',
+                        help = 'Hex file containing the firmware.')
+
+    config = parser.parse_args(argv)
+    return config
+
+def main(argv = None):
+    if argv is None:
+        argv = sys.argv[1:]
+
+    config = parse_args(argv)
+
+    ser = serial_connect(config)
+    (raw_data, crc) = read_data(config)
+
+    send_data(config, ser, raw_data, crc)
 
 if __name__ == "__main__":
     sys.exit(main())

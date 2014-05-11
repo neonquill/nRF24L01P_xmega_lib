@@ -153,7 +153,12 @@ chunk_size = 29
 total_len = len(raw_data)
 transmitted = 0
 
-pbar = progressbar.ProgressBar(maxval = total_len)
+widgets = ['Transferring: ',
+           progressbar.widgets.Percentage(), ' ',
+           progressbar.widgets.Bar(), ' ',
+           progressbar.widgets.FileTransferSpeed(), ' ',
+           progressbar.widgets.ETA()]
+pbar = progressbar.ProgressBar(widgets = widgets, maxval = total_len)
 pbar.start()
 
 pages = [raw_data[i:i + page_size]

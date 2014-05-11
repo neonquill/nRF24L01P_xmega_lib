@@ -570,14 +570,9 @@ nordic_transfer_payload(uint8_t *buf, uint8_t len) {
  *
  * @param[in] buf  Buffer containing the data.
  * @param[in] len  Length of the data to send.
- *
- * @return Boolean which is true if the transfer succeeded.
  */
-uint8_t
+void
 nordic_write_data(uint8_t *buf, uint8_t len) {
-  uint8_t status;
-  uint8_t data;
-
   /* Switch to transmit mode. */
   nordic_transmit_standby();
 
@@ -593,23 +588,6 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
 
   // Turn off chip enable, causing to go back to sleep after the transfer.
   nordic_ce_low();
-
-  // XXX XXX XXX Read more about transmitting, not sure if this is right.
-  // XXX Probably need to power down...
-
-  /* Spin until the transmit finishes. */
-  while (1) {
-    status = nordic_get_status();
-    if (((status & _BV(TX_DS)) != 0) || ((status & _BV(MAX_RT)) != 0)) {
-      data = _BV(TX_DS) | _BV(MAX_RT);
-      nordic_write_register(STATUS, &data, 1);
-      break;
-    }
-    // XXX This should probably be shorter.
-    _delay_ms(100);
-  }
-
-  return(status & _BV(TX_DS));
 }
 
 /**
@@ -661,13 +639,16 @@ static int8_t g_next_empty_packet = 0;
  *
  * This function assumes that all data buffered in this function
  * is consumed before being called again.
+ *
+ * @return The original status register.
  */
-void
+uint8_t
 nordic_process_interrupt(void) {
-  uint8_t status, success;
+  uint8_t status, success, return_status;
   uint8_t clear_bits = 0;
 
   status = nordic_get_status();
+  return_status = status;
 
   if (status & _BV(MAX_RT)) {
     // serial_write_string("Max retransmit\r\n");
@@ -717,6 +698,8 @@ nordic_process_interrupt(void) {
       clear_bits = _BV(RX_DR);
     }
   }
+
+  return(return_status);
 }
 
 /**

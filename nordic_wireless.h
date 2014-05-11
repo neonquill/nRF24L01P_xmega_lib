@@ -31,6 +31,19 @@ enum nordic_state {
   STANDBY_II
 };
 
+/* XXX nRF24L01P.h conflicts with other headers, so import these. */
+#ifndef RX_DR
+#define RX_DR       6
+#endif
+
+#ifndef TX_DS
+#define TX_DS       5
+#endif
+
+#ifndef MAX_RT
+#define MAX_RT      4
+#endif
+
 struct packet_data {
   uint8_t pipe;
   uint8_t len;
@@ -46,13 +59,13 @@ void nordic_disable_pipe(uint8_t pipe);
 void nordic_start_listening(void);
 void nordic_stop_listening(void);
 
-uint8_t nordic_write_data(uint8_t *buf, uint8_t len);
+void nordic_write_data(uint8_t *buf, uint8_t len);
 
 uint8_t nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len);
 uint8_t nordic_data_ready(uint8_t status);
 uint8_t nordic_get_data(uint8_t status, uint8_t *buf, uint8_t *len);
 struct packet_data *nordic_get_packet(void);
-void nordic_process_interrupt(void);
+uint8_t nordic_process_interrupt(void);
 
 /* XXX Delete these? */
 #ifdef SERIAL_DEBUG

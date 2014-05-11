@@ -62,9 +62,11 @@ setup_pins(void) {
   PORTE.OUT = 0x00;
 }
 
+volatile static uint8_t nordic_interrupt = 0;
+
 /* Interrupt routine for the nordic IRQ. */
 ISR(PORTB_INT0_vect) {
-  /* XXX */
+  nordic_interrupt = 1;
 }
 
 void
@@ -136,7 +138,6 @@ process_serial(char b) {
   int i;
 #endif
   static int next_index = 0;
-  uint8_t success;
 
   buffer[next_index] = b;
   next_index++;
@@ -160,23 +161,17 @@ process_serial(char b) {
       nordic_flush_tx_fifo();
       nordic_clear_interrupts();
 
-      success = nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
-      if (success) {
 #if DEBUG_PACKET_BYTES
-        snprintf(txt, 32, "success %d: ", buffer[1]);
+      snprintf(txt, 32, "sent %d: ", buffer[1]);
+      serial_write_string(txt);
+      for (i = 0; i < buffer[1]; i++) {
+        snprintf(txt, 32, "%d,", buffer[i + 2]);
         serial_write_string(txt);
-        for (i = 0; i < buffer[1]; i++) {
-          snprintf(txt, 32, "%d,", buffer[i + 2]);
-          serial_write_string(txt);
-        }
-
-        serial_write_string("\r\n");
-#else
-        serial_write_string("success\r\n");
-#endif
-      } else {
-        serial_write_string("fail\r\n");
       }
+      serial_write_string("\r\n");
+#endif
+
+      nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
 
       //nordic_print_radio_config();
 
@@ -234,15 +229,25 @@ setup(void) {
 void
 loop(void) {
   char b;
+  uint8_t status;
 #if 0
   uint8_t data[32];
   char txt[32];
-  uint8_t status;
   uint8_t len;
 #endif
   // static uint8_t count = 0;
 
   // blink(1);
+
+  if (nordic_interrupt) {
+    nordic_interrupt = 0;
+    status = nordic_process_interrupt();
+    if (status & _BV(MAX_RT)) {
+      serial_write_string("fail\r\n");
+    } else if (status & _BV(TX_DS)) {
+      serial_write_string("success\r\n");
+    }
+  }
 
 #if 0
   if (nordic_data_ready()) {

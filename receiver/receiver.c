@@ -183,25 +183,35 @@ process_data(uint8_t data[], uint8_t len) {
     // Grab the buffer offset from the packet.
     memcpy(&buffer_offset, &data[1], sizeof(buffer_offset));
 
+    snprintf(txt, sizeof(txt), "B of: %x, len: %d\r\n", buffer_offset, len);
+    serial_write_string(txt);
+
     if ((buffer_offset + len) > SPM_PAGESIZE) {
       serial_write_string("Buffer overflow!\r\n");
       return;
     }
+
     memcpy(&page_buffer[buffer_offset], &data[3], len);
     page_committed = 0;
     buffer_offset += len;
 
   } else if (data[0] == 'e') {
+    serial_write_string("e\r\n");
+
     // Erase the memory.
     if (xboot_app_temp_erase() != XB_SUCCESS) {
       serial_write_string("Erase failed!\r\n");
       return;
     }
+
     addr = 0;
     page_committed = 0;
     buffer_offset = 0;
 
   } else if (data[0] == 'm') {
+    snprintf(txt, sizeof(txt), "m off: %x\r\n", buffer_offset);
+    serial_write_string(txt);
+
     // Commit the block.
     if (page_committed) {
       serial_write_string("Page already committed!\r\n");
@@ -226,6 +236,8 @@ process_data(uint8_t data[], uint8_t len) {
     buffer_offset = 0;
 
   } else if (data[0] == 'w') {
+    serial_write_string("w\r\n");
+
     // Finalize the data.
     if (len < 3) {
       serial_write_string("Final msg err!\r\n");

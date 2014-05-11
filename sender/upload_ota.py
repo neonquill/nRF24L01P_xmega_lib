@@ -61,11 +61,11 @@ def send_packet(pkt):
             line = ser.readline().strip()
 
         if line.startswith(b'success'):
-            #print("#Raw: ", line)
+            print("#Raw: ", line)
             #print("#XXX Sent cmd {}".format(cmd))
             break
         else:
-            #print("#Raw: ", line)
+            print("#Raw: ", line)
             print("Retransmitting.")
             pass
 
@@ -76,7 +76,7 @@ ser = serial.Serial('/dev/tty.usbserial-A40188LY', 115200, timeout = 1)
 #send_packet(pkt)
 #sys.exit(0)
 
-filename = '../blink_test/blink.hex'
+filename = '../receiver/receiver.hex'
 raw_data = intelhex.IntelHex(filename).tobinarray()
 #raw_data = bytes([1, 2, 3])
 
@@ -103,6 +103,36 @@ while True:
     if not line:
         break
     print("#Raw: ", line)
+
+print("Attempting to synchronize!")
+# First, send characters until we get a '?'.
+while True:
+    ser.write(b'\0')
+    line = ser.readline()
+    print("#Raw q: ", line)
+    if line == b'?\r\n':
+        break
+
+count = 0
+while True:
+    count += 1
+    cmd = b'p' + struct.pack('b', count)
+    response = b'P' + struct.pack('b', count)
+
+    print("Sending ", cmd)
+    ser.write(cmd)
+    line = ser.readline().strip()
+    print("#Raw r: ", line)
+
+    if line == response:
+        print("Synchronized!");
+        break
+    else:
+        while True:
+            line = ser.readline().strip()
+            if not line:
+                break
+            print("#Raw f: ", line)
 
 # Erase.
 send_packet(b"e")

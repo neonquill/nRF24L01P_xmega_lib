@@ -131,8 +131,8 @@ nordic_setup(void) {
 void
 process_serial(char b) {
   static char buffer[40];
-#if DEBUG_PACKET_BYTES
   char txt[32];
+#if DEBUG_PACKET_BYTES
   int i;
 #endif
   static int next_index = 0;
@@ -147,7 +147,13 @@ process_serial(char b) {
   serial_write_string("\r\n");
   */
 
-  if (buffer[0] == 'W' && next_index > 1) {
+  if (buffer[0] == 'W') {
+    if (next_index <= 1) {
+      /* Haven't received the size yet, ignore. */
+      return;
+    }
+
+    PORTC.OUTSET = PIN2_bm;
     /* 0 1   2  3  4  next_index */
     /* W len b1 b2 b3 */
     if (next_index > buffer[1] + 1) {
@@ -155,7 +161,10 @@ process_serial(char b) {
       nordic_flush_tx_fifo();
       nordic_clear_interrupts();
 
+      PORTC.OUTSET = PIN3_bm;
       success = nordic_write_data((uint8_t *)&buffer[2], buffer[1]);
+      PORTC.OUTCLR = PIN3_bm;
+      PORTC.OUTSET = PIN4_bm;
       if (success) {
 #if DEBUG_PACKET_BYTES
         snprintf(txt, 32, "success %d: ", buffer[1]);
@@ -172,19 +181,42 @@ process_serial(char b) {
       } else {
         serial_write_string("fail\r\n");
       }
+      PORTC.OUTCLR = PIN4_bm;
 
       //nordic_print_radio_config();
 
       next_index = 0;
+      PORTC.OUTCLR = PIN2_bm;
       return;
     }
+    PORTC.OUTCLR = PIN2_bm;
+
+  } else if (buffer[0] == 'p') {
+    if (next_index <= 1) {
+      /* Wait for the character to echo. */
+      return;
+    }
+
+    PORTC.OUTSET = PIN5_bm;
+    /* Ping, echo back the character. */
+    snprintf(txt, sizeof(txt), "P%c\r\n", buffer[1]);
+    serial_write_string(txt);
+    next_index = 0;
+    PORTC.OUTCLR = PIN5_bm;
+
+  } else {
+    /* Unknown command, flush the buffer. */
+    serial_write_string("?\r\n");
+    next_index = 0;
   }
 
+  PORTC.OUTSET = PIN5_bm;
   /* Check for overflow. */
   if (next_index >= 40) {
     /* Throw away the buffer. */
     next_index = 0;
   }
+  PORTC.OUTCLR = PIN5_bm;
 }
 
 void
@@ -222,6 +254,8 @@ loop(void) {
   // static uint8_t count = 0;
 
   // blink(1);
+
+  PORTC.OUTSET = PIN0_bm;
 
 #if 0
   if (nordic_data_ready()) {
@@ -269,8 +303,12 @@ loop(void) {
 #endif
 
   if (serial_get_byte(&b)) {
+    PORTC.OUTSET = PIN1_bm;
     process_serial(b);
+    PORTC.OUTCLR = PIN1_bm;
   }
+
+  PORTC.OUTCLR = PIN0_bm;
 
   //_delay_ms(1000);
 }

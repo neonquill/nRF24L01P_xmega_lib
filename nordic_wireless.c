@@ -14,9 +14,13 @@ static uint8_t en_rxaddr;
 static uint8_t en_aa = 0x00;
 static uint8_t dynpd = 0x00;
 static uint8_t feature = 0x00;
+static uint8_t config = 0x00;
 
 /* Keep track of the packet size per pipe. */
 static uint8_t pipe_payload_len[6] = {0};
+
+/* Keep track of the state of the radio. */
+static enum nordic_state radio_state;
 
 // XXX Need to pass in the chip select pin into this library.
 /**
@@ -124,6 +128,133 @@ nordic_read_register(uint8_t address, uint8_t *value, uint8_t len) {
 }
 
 /**
+ * Power down the radio.
+ *
+ * @return Boolean, true if successful.
+ */
+static uint8_t
+nordic_power_down(void) {
+  config = _BV(EN_CRC);
+  nordic_config_register(CONFIG, config);
+  radio_state = POWER_DOWN;
+  return(1);
+}
+
+/**
+ * Switch to the standby state.
+ *
+ * @return Boolean, true if successful.
+ */
+static uint8_t
+nordic_standby(void) {
+  if (radio_state == STANDBY_I) {
+    /* Already here, just return. */
+    return(1);
+  }
+
+  if (radio_state == POWER_DOWN) {
+    /* Power on. */
+    config |= _BV(PWR_UP);
+    nordic_config_register(CONFIG, config);
+    radio_state = XO_START_UP;
+
+    /*
+     * Must wait for Tpd2stby ms before we're in standby.
+     * Worst case appears to be 4.5ms.
+     */
+    _delay_us(500);
+    radio_state = STANDBY_I;
+    return(1);
+  }
+
+  /* All other states require setting CE to low to return to standby. */
+  nordic_ce_low();
+  radio_state = STANDBY_I;
+  return(1);
+}
+
+/**
+ * Switch to the receive mode state.
+ *
+ * @return Boolean, true if successful.
+ */
+static uint8_t
+nordic_receive_mode(void) {
+  uint8_t new_config;
+
+  if (radio_state == RX) {
+    /* Already here, just return. */
+    return(1);
+  }
+
+  /* First, switch to standby. */
+  /* If we're in a TX state, this will return us to standby. */
+  nordic_ce_low();
+  /* If we're powered down, move back to standby. */
+  if (radio_state == POWER_DOWN) {
+    if (!nordic_standby()) {
+      return(0);
+    }
+  }
+
+  /* Now switch to receive mode. */
+  new_config = config | _BV(PRIM_RX);
+  if (new_config != config) {
+    config = new_config;
+    nordic_config_register(CONFIG, config);
+  }
+
+  /* Now set CE high. */
+  nordic_ce_high();
+  /*
+   * If we wanted to monitor the settling period:
+   *  radio_state = RX_SETTLING;
+   *  _delay_us(130);
+   */
+  radio_state = RX;
+  return(1);
+}
+
+/**
+ * Prepare to switch to the transmit state.
+ *
+ * Unlike the other states we don't actually switch to the final
+ * state.  This just puts us into standby with the right bits set.  We
+ * can then set the CE pin high when we're ready.
+ *
+ * @return Boolean, true if successful.
+ */
+static uint8_t
+nordic_transmit_standby(void) {
+  uint8_t new_config;
+
+  if ((radio_state == TX) || (radio_state == TX_SETTLING)) {
+    /* Already here, just return. */
+    return(1);
+  }
+
+  /* First, switch to standby. */
+  /* If we're in a RX state, this will return us to standby. */
+  nordic_ce_low();
+  /* If we're powered down, move back to standby. */
+  if (radio_state == POWER_DOWN) {
+    if (!nordic_standby()) {
+      return(0);
+    }
+  }
+
+  /* Now set the config state correctly. */
+  new_config = config & ~(_BV(PRIM_RX));
+  if (new_config != config) {
+    config = new_config;
+    nordic_config_register(CONFIG, config);
+  }
+
+  radio_state = STANDBY_I;
+  return(1);
+}
+
+/**
  * Get the value of the status register.
  *
  * @return  The value of the status register.
@@ -154,7 +285,9 @@ nordic_init(void) {
 
   // Reset radio to default configuration values.
   // All interrupts enabled, CRC on, 1 byte, powered down, transmit mode.
-  nordic_config_register(CONFIG, _BV(EN_CRC));
+  config = _BV(EN_CRC);
+  nordic_config_register(CONFIG, config);
+  radio_state = POWER_DOWN;
 
   // Make sure any pending data is flushed.
   nordic_flush_tx_fifo();
@@ -282,15 +415,7 @@ nordic_disable_pipe(uint8_t pipe) {
  */
 void
 nordic_start_listening(void) {
-  // XXX Add a callback function as a parameter. ???
-  //rx_callback = callback;
-
-  // XXX Save the CONFIG scheme?
-  nordic_config_register(CONFIG, _BV(EN_CRC) | _BV(PWR_UP) | _BV(PRIM_RX));
-
-  // Set CE pin high.
-  nordic_ce_high();
-  return;
+  nordic_receive_mode();
 }
 
 /**
@@ -298,11 +423,7 @@ nordic_start_listening(void) {
  */
 void
 nordic_stop_listening(void) {
-  // XXX Set CE pin low.
-
-  // XXX Now read out the payload data?
-
-  // XXX Power down?
+  nordic_power_down();
 }
 
 /**
@@ -457,18 +578,11 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
   uint8_t status;
   uint8_t data;
 
-  /* If we were listening, we need to return to Standby-I. */
-  nordic_ce_low();
-
-  // Power up in transmit mode.
-  nordic_config_register(CONFIG, _BV(EN_CRC) | _BV(PWR_UP));
+  /* Switch to transmit mode. */
+  nordic_transmit_standby();
 
   // Transfer the payload to the radio.
   nordic_transfer_payload(buf, len);
-
-  // Must wait for Tpd2stby ms before the CE pin is set high.
-  // Worst case appears to be 4.5ms
-  _delay_us(500);
 
   // Set chip enable high to actually start the transfer.
   nordic_ce_high();
@@ -491,6 +605,7 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
       nordic_write_register(STATUS, &data, 1);
       break;
     }
+    // XXX This should probably be shorter.
     _delay_ms(100);
   }
 

@@ -5,6 +5,32 @@ enum {
   VARIABLE_PAYLOAD_LEN = 0xff
 };
 
+enum nordic_state {
+  /* Powered down. */
+  POWER_DOWN,
+
+  /* Transitioning from powered down to standby. */
+  XO_START_UP,
+
+  /* Standard idle state. */
+  STANDBY_I,
+
+  /* Transitioning to receive mode. */
+  RX_SETTLING,
+
+  /* Receive mode. */
+  RX,
+
+  /* Transitioning to transmit mode. */
+  TX_SETTLING,
+
+  /* Transmitting packets. */
+  TX,
+
+  /* In transmit mode, without packets to send. */
+  STANDBY_II
+};
+
 struct packet_data {
   uint8_t pipe;
   uint8_t len;

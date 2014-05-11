@@ -122,8 +122,7 @@ def serial_connect(config):
 def read_data(config):
     raw_data = intelhex.IntelHex(config.filename).tobinarray()
 
-    # XXX Grab this from the chip.
-    app_section_size = 32768
+    app_section_size = config.app_section_size
     app_temp_size = app_section_size // 2
 
     # Must pad out the crc calculation with 0xff up to the mem size.
@@ -143,8 +142,7 @@ def send_data(config, ser, raw_data, crc):
     total_retransmits += send_packet(ser, b"e")
 
     # Send the data.
-    # XXX Get the page size from the device.
-    page_size = 256
+    page_size = config.page_size
     chunk_size = 29
 
     total_len = len(raw_data)
@@ -187,7 +185,16 @@ def send_data(config, ser, raw_data, crc):
 
     print("Retransmitted {} times.".format(total_retransmits))
 
-def parse_args(argv):
+def get_part_config(config):
+    # XXX Could just read the avrdude config for this.
+    parts = {'atxmega32a4u': {'app_section_size': 32768,
+                              'page_size': 256}}
+
+    part = parts[config.partno]
+    for key in part.keys():
+        setattr(config, key, part[key])
+
+def get_config(argv):
     description = 'Upload firmware over the air.'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--partno', '-p',
@@ -196,13 +203,14 @@ def parse_args(argv):
                         help = 'Hex file containing the firmware.')
 
     config = parser.parse_args(argv)
+    get_part_config(config)
     return config
 
 def main(argv = None):
     if argv is None:
         argv = sys.argv[1:]
 
-    config = parse_args(argv)
+    config = get_config(argv)
 
     ser = serial_connect(config)
     (raw_data, crc) = read_data(config)

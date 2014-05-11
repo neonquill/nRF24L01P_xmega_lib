@@ -142,6 +142,9 @@ nordic_get_status(void) {
   return(status);
 }
 
+/**
+ * Initialize the nordic library.
+ */
 void
 nordic_init(void) {
   // SPI Mode 0.
@@ -161,6 +164,11 @@ nordic_init(void) {
   // XXX Disable all reading channels.
 }
 
+/**
+ * Set the radio channel.
+ *
+ * @param[in] channel  Channel to use.
+ */
 void
 nordic_set_channel(uint8_t channel) {
   uint8_t set_channel;
@@ -173,6 +181,24 @@ nordic_set_channel(uint8_t channel) {
   } while ((channel != set_channel) && (count < 4));
 }
 
+/**
+ * Set the receive address for a given pipe.
+ *
+ * NOTE: This is intended for use on pipe 0 when sending
+ * auto-acknowledged traffic.  In that case, pipe 0 should be set to
+ * the destination address before transmitting.  This is the address
+ * the acknowledgment packet will be sent to.  After receiving the
+ * acknowledgment packet, this function can be used to return pipe 0
+ * to the original address.
+ *
+ * No attempt is made to validate that the pipe has already been enabled.
+ *
+ * @param[in] addr  Array of bytes describing the address.
+ * @param[in] addr_len  Number of bytes in the address.
+ * @param[in] pipe  The number of the pipe to modify.
+ *
+ * @return The value of the status register.
+ */
 uint8_t
 nordic_set_rx_addr(uint8_t *addr, uint8_t addr_len, uint8_t pipe) {
   uint8_t status;
@@ -181,10 +207,32 @@ nordic_set_rx_addr(uint8_t *addr, uint8_t addr_len, uint8_t pipe) {
   return(status);
 }
 
-// XXX See footnote d on page 63 for restrictions on ack retransmit with
-// variable payloads.
-// XXX To transmit variable payload lengths, the transmitter must have
-// the DPL_P0 bit set.
+/**
+ * Set up a receive pipe.
+ *
+ * NOTE: To transmit variable payload lengths, the transmitter must have
+ *   variable payload lengths enabled on pipe 0.
+ *
+ * Notes from the data sheet:
+ *   If ACK packet payload is activated, ACK packets have dynamic
+ *   payload lengths and the Dynamic Payload Length feature should be
+ *   enabled for pipe 0 on the transmitter and receiver.  This is to
+ *   ensure that they receive the ACK packets with payloads.
+ *
+ *   If the ACK payload is more than 15 byte in 2Mbps mode the ARD
+ *   must be 500μS or more, and if the ACK payload is more than 5 byte
+ *   in 1Mbps mode the ARD must be 500μS or more. In 250kbps mode
+ *   (even when the payload is not in ACK) the ARD must be 500μS or
+ *   more.
+ *
+ * @param[in] pipe  The number of the pipe to configure.
+ * @param[in] addr  Pointer to an array of address bytes.
+ * @param[in] addr_len  Number of bytes in the address.
+ * @param[in] enable_aa  Boolean, true if auto-acknowledge should be
+ *   enabled.
+ * @param[in] payload_len  Length of the payload expected on a pipe,
+ *   or VARIABLE_PAYLOAD_LEN if the payload length is variable.
+ */
 void
 nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
 		  uint8_t enable_aa, uint8_t payload_len) {
@@ -217,6 +265,11 @@ nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
   }
 }
 
+/**
+ * Disable a receive pipe.
+ *
+ * @param[in] pipe  Number of the pipe to disable.
+ */
 void
 nordic_disable_pipe(uint8_t pipe) {
   // Update the bitmask of enabled addresses.
@@ -224,6 +277,9 @@ nordic_disable_pipe(uint8_t pipe) {
   nordic_config_register(EN_RXADDR, en_rxaddr);
 }
 
+/**
+ * Put the radio in receive mode.
+ */
 void
 nordic_start_listening(void) {
   // XXX Add a callback function as a parameter. ???
@@ -237,6 +293,9 @@ nordic_start_listening(void) {
   return;
 }
 
+/**
+ * Take the radio out of receive mode.
+ */
 void
 nordic_stop_listening(void) {
   // XXX Set CE pin low.
@@ -252,6 +311,11 @@ nordic_stop_listening(void) {
  * NOTE: If using auto-acknowledge, the port 0 address needs to be set
  * to the same address before transmitting.  This ensures that we
  * receive the ack packet.
+ *
+ * @param[in] addr  Pointer to an array of address bytes.
+ * @param[in] addr_len  Number of bytes in the address.
+ *
+ * @return Value of the status register.
  */
 uint8_t
 nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
@@ -261,6 +325,10 @@ nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
   return(status);
 }
 
+/**
+ * Check to see if there is data ready to be read.
+ * XXX Delete this?
+ */
 uint8_t
 nordic_data_ready(uint8_t status) {
   return((status & _BV(RX_DR)) != 0);
@@ -286,9 +354,10 @@ nordic_rx_fifo_empty(void) {
  *
  * @param[in] status  Recent value of the status register.
  * @param[out] packet  Pointer to a packet structure to store the data in.
+ *
  * @return Boolean true if success.
  */
-uint8_t
+static uint8_t
 nordic_read_packet(uint8_t status, struct packet_data *packet) {
   uint8_t payload_length;
   int8_t pipe;
@@ -351,7 +420,14 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
   return(1);
 }
 
-
+/**
+ * Helper to transfer a packet payload from the radio.
+ *
+ * @param[in] buf  Pointer to the buffer to store the data in.
+ * @param[in] len  Number of bytes to transfer.
+ *
+ * @return  The value of the status register.
+ */
 static uint8_t
 nordic_transfer_payload(uint8_t *buf, uint8_t len) {
   uint8_t status;
@@ -368,6 +444,14 @@ nordic_transfer_payload(uint8_t *buf, uint8_t len) {
   return(status);
 }
 
+/**
+ * Send a packet.
+ *
+ * @param[in] buf  Buffer containing the data.
+ * @param[in] len  Length of the data to send.
+ *
+ * @return Boolean which is true if the transfer succeeded.
+ */
 uint8_t
 nordic_write_data(uint8_t *buf, uint8_t len) {
   uint8_t status;
@@ -413,6 +497,11 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
   return(status & _BV(TX_DS));
 }
 
+/**
+ * Clear all interrupts.
+ *
+ * @return The value of the status register.
+ */
 // XXX Probably shouldn't be an externally visable call.
 uint8_t
 nordic_clear_interrupts(void) {
@@ -423,6 +512,9 @@ nordic_clear_interrupts(void) {
   return(status);
 }
 
+/**
+ * Flush the transmit buffer.
+ */
 void
 nordic_flush_tx_fifo(void) {
   nordic_cs_low();
@@ -432,6 +524,9 @@ nordic_flush_tx_fifo(void) {
   nordic_cs_high();
 }
 
+/**
+ * Flush the receive buffer.
+ */
 void
 nordic_flush_rx_fifo(void) {
   nordic_cs_low();
@@ -541,6 +636,9 @@ nordic_get_packet(void) {
 }
 
 #ifdef SERIAL_DEBUG
+/**
+ * Print the various registers from the radio.
+ */
 void
 nordic_print_radio_config(void) {
   uint8_t buffer[5];

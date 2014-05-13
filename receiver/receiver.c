@@ -154,6 +154,32 @@ setup(void) {
   nordic_start_listening();
 }
 
+/**
+ * Send device info needed to correctly program the chip.
+ */
+void
+send_device_info(void) {
+  uint8_t data[8];
+
+  /* Message identifier. */
+  data[0] = 's';
+  /* Three bytes of the device id. */
+  data[1] = SIGNATURE_2;
+  data[2] = SIGNATURE_1;
+  data[3] = SIGNATURE_0;
+  /* Two bytes of the device page size. */
+  data[4] = (SPM_PAGESIZE >> 8) & 0xff;
+  data[5] = SPM_PAGESIZE & 0xff;
+  /* Two bytes of the xboot app size. */
+  data[4] = (XB_APP_SIZE >> 8) & 0xff;
+  data[5] = XB_APP_TEMP_SIZE & 0xff;
+
+  // XXX Need to set the transmit address to ???
+  // XXX Need to handle transmit success and failure.
+  // XXX Need to return to listen mode.
+  nordic_write_data(data, sizeof(data));
+}
+
 #define DEBUG_CRC 0
 
 void
@@ -235,6 +261,10 @@ process_data(uint8_t data[], uint8_t len) {
     addr += SPM_PAGESIZE;
     page_committed = 1;
     buffer_offset = 0;
+
+  } else if (data[0] == 's') {
+    /* Respond with the device id, memory size, and page size. */
+    send_device_info();
 
   } else if (data[0] == 'w') {
     serial_write_string("w\r\n");

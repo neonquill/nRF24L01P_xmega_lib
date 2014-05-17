@@ -66,12 +66,12 @@ def send_packet(ser, pkt):
             line = ser.readline().strip()
 
         if line.startswith(b'success'):
-            #print("#Raw: ", line)
-            #print("#XXX Sent cmd {}".format(cmd))
+            print("#Raw: ", line)
+            print("#XXX Sent cmd {}".format(cmd))
             break
         else:
-            #print("#Raw: ", line)
-            #print("Retransmitting.")
+            print("#Raw: ", line)
+            print("Retransmitting.")
             retransmits += 1
             pass
 
@@ -131,6 +131,21 @@ def read_data(config):
     crc = crc16(raw_data + pad_data)
 
     return (raw_data, crc)
+
+def get_device_info(config, ser):
+    for send_count in range(10):
+        print("Sending 's'")
+        send_packet(ser, b"s")
+        for receive_count in range(3):
+            print(".")
+            line = ser.readline().strip()
+            print("#Raw r: ", line)
+            if line.startswith(b"R("):
+                (header, data) = line.split(':')
+                (pkt_len, pipe) = line[2:-1].split(',')
+                if pkt_len != 8:
+                    print("Data length is wrong!")
+                    raise Error
 
 def send_data(config, ser, raw_data, crc):
     print("Transmitting {}: {} bytes, {:x} crc"
@@ -215,6 +230,7 @@ def main(argv = None):
     ser = serial_connect(config)
     (raw_data, crc) = read_data(config)
 
+    get_device_info(config, ser)
     send_data(config, ser, raw_data, crc)
 
 if __name__ == "__main__":

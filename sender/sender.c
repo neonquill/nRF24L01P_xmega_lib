@@ -275,6 +275,7 @@ loop(void) {
       serial_write_string("success\r\n");
       nordic_start_listening();
     } else if (status & _BV(RX_DR)) {
+      serial_write_string("incoming\r\n");
       process_incoming_data();
     }
   }

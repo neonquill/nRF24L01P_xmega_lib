@@ -177,7 +177,9 @@ send_device_info(void) {
   /* For now, assume the sender is listening on the boot adress. */
   nordic_set_tx_addr(boot_address, sizeof(boot_address));
   nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
+  nordic_print_radio_config();
   nordic_write_data(data, sizeof(data));
+  nordic_print_radio_config();
 }
 
 #define DEBUG_CRC 0
@@ -264,7 +266,9 @@ process_data(uint8_t data[], uint8_t len) {
 
   } else if (data[0] == 's') {
     /* Respond with the device id, memory size, and page size. */
+    serial_write_string("s start\r\n");
     send_device_info();
+    serial_write_string("s end\r\n");
 
   } else if (data[0] == 'w') {
     serial_write_string("w\r\n");
@@ -366,9 +370,17 @@ loop(void) {
     status = nordic_process_interrupt();
 
     if (status & (_BV(MAX_RT) | _BV(TX_DS))) {
+      if (status & _BV(MAX_RT)) {
+        serial_write_string("Transmit failure\r\n");
+        /* Ignore transmit failures, just wait for the sender to re-request. */
+        nordic_flush_tx_fifo();
+      } else {
+        serial_write_string("Transmit complete\r\n");
+      }
+
       /* Transmit is complete, return to listening mode. */
-      /* Ignore transmit failures, just wait for the sender to re-request. */
       nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
+      nordic_print_radio_config();
       nordic_start_listening();
     } else if (status & _BV(RX_DR)) {
       process_incoming_data();

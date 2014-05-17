@@ -190,6 +190,11 @@ process_serial(char b) {
     serial_write_string(txt);
     next_index = 0;
 
+  } else if (buffer[0] == 'R') {
+    /* Print the radio config. */
+    nordic_print_radio_config();
+    next_index = 0;
+
   } else {
     /* Unknown command, flush the buffer. */
     serial_write_string("?\r\n");

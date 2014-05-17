@@ -171,8 +171,8 @@ send_device_info(void) {
   data[4] = (SPM_PAGESIZE >> 8) & 0xff;
   data[5] = SPM_PAGESIZE & 0xff;
   /* Two bytes of the xboot app size. */
-  data[4] = (XB_APP_SIZE >> 8) & 0xff;
-  data[5] = XB_APP_TEMP_SIZE & 0xff;
+  data[6] = (XB_APP_SIZE >> 8) & 0xff;
+  data[7] = XB_APP_TEMP_SIZE & 0xff;
 
   /* For now, assume the sender is listening on the boot adress. */
   nordic_set_tx_addr(boot_address, sizeof(boot_address));

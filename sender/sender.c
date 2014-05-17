@@ -215,12 +215,10 @@ process_incoming_data(void) {
       break;
     }
 
-    snprintf(txt, sizeof(txt), "R(%d,%d): %d", packet->len, packet->pipe,
-             packet->data[0]);
+    snprintf(txt, sizeof(txt), "R(%d,%d):", packet->len, packet->pipe);
     serial_write_string(txt);
-    for (i = 1; i < packet->len; i++) {
-      snprintf(txt, 32, ",%d", packet->data[i]);
-      serial_write_string(txt);
+    for (i = 0; i < packet->len; i++) {
+      serial_write(packet->data[i]);
     }
     serial_write_string("\r\n");
   }

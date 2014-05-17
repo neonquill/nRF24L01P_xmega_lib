@@ -66,12 +66,12 @@ def send_packet(ser, pkt):
             line = ser.readline().strip()
 
         if line.startswith(b'success'):
-            print("#Raw: ", line)
-            print("#XXX Sent cmd {}".format(cmd))
+            #print("#Raw: ", line)
+            #print("#XXX Sent cmd {}".format(cmd))
             break
         else:
-            print("#Raw: ", line)
-            print("Retransmitting.")
+            #print("#Raw: ", line)
+            #print("Retransmitting.")
             retransmits += 1
             pass
 
@@ -122,8 +122,7 @@ def serial_connect(config):
 def read_data(config):
     raw_data = intelhex.IntelHex(config.filename).tobinarray()
 
-    app_section_size = config.app_section_size
-    app_temp_size = app_section_size // 2
+    app_temp_size = config.app_size
 
     # Must pad out the crc calculation with 0xff up to the mem size.
     num_pad_bytes = app_temp_size - len(raw_data)
@@ -134,18 +133,50 @@ def read_data(config):
 
 def get_device_info(config, ser):
     for send_count in range(10):
-        print("Sending 's'")
+        #print("Sending 's'")
         send_packet(ser, b"s")
         for receive_count in range(3):
-            print(".")
+            #print(".")
             line = ser.readline().strip()
-            print("#Raw r: ", line)
+            #print("#Raw r: ", line)
             if line.startswith(b"R("):
-                (header, data) = line.split(':')
-                (pkt_len, pipe) = line[2:-1].split(',')
-                if pkt_len != 8:
-                    print("Data length is wrong!")
-                    raise Error
+                (header, data_bytes) = line.split(b':')
+                (pkt_len, pipe) = header[2:-1].split(b',')
+                if int(pkt_len) != 8:
+                    error = "Data length is wrong! ({} != 8)".format(pkt_len)
+                    raise Exception(error)
+
+                # Parse the bytes.
+                raw_data = struct.unpack("!cBBBHH", data_bytes)
+                msg_id = raw_data[0]
+                device_id = (raw_data[1], raw_data[2], raw_data[3])
+                page_size = raw_data[4]
+                app_size = raw_data[5]
+
+                if msg_id != b's':
+                    error = "Invalid message id! ({} != s)".format(msg_id)
+                    raise Exception(error)
+
+                print("Device id {:x}.{:x}.{:x}".format(device_id[0],
+                                                        device_id[1],
+                                                        device_id[2]))
+                print("Page size {}".format(page_size))
+                print("App size {}".format(app_size))
+
+                if ((config.device_id != device_id) or
+                    (config.app_section_size // 2 != app_size) or
+                    (config.page_size != page_size)):
+
+                    raise Exception("Device metadata mismatch!")
+
+                config.page_size = page_size
+                config.app_size = app_size
+
+                return
+
+    raise Exception("Unable to contact device!")
+
+
 
 def send_data(config, ser, raw_data, crc):
     print("Transmitting {}: {} bytes, {:x} crc"
@@ -202,7 +233,8 @@ def send_data(config, ser, raw_data, crc):
 
 def get_part_config(config):
     # XXX Could just read the avrdude config for this.
-    parts = {'atxmega32a4u': {'app_section_size': 32768,
+    parts = {'atxmega32a4u': {'device_id': (0x41, 0x95, 0x1E),
+                              'app_section_size': 32768,
                               'page_size': 256}}
 
     part = parts[config.partno]
@@ -228,9 +260,8 @@ def main(argv = None):
     config = get_config(argv)
 
     ser = serial_connect(config)
-    (raw_data, crc) = read_data(config)
-
     get_device_info(config, ser)
+    (raw_data, crc) = read_data(config)
     send_data(config, ser, raw_data, crc)
 
 if __name__ == "__main__":

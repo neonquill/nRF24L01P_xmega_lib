@@ -110,11 +110,11 @@ setup_clock(void) {
   DFLLRC32M.CTRL = DFLL_ENABLE_bm;
 }
 
+static uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
+static uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
 
 void
 nordic_setup(void) {
-  uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
-  uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
   nordic_init();
   nordic_set_channel(1);
   nordic_setup_pipe(0, broadcast_address, 5, 1, VARIABLE_PAYLOAD_LEN);
@@ -174,9 +174,11 @@ send_device_info(void) {
   data[4] = (XB_APP_SIZE >> 8) & 0xff;
   data[5] = XB_APP_TEMP_SIZE & 0xff;
 
-  // XXX Need to set the transmit address to ???
   // XXX Need to handle transmit success and failure.
   // XXX Need to return to listen mode.
+  /* For now, assume the sender is listening on the boot adress. */
+  nordic_set_tx_addr(boot_address, sizeof(boot_address));
+  nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
   nordic_write_data(data, sizeof(data));
 }
 

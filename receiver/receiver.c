@@ -174,8 +174,6 @@ send_device_info(void) {
   data[4] = (XB_APP_SIZE >> 8) & 0xff;
   data[5] = XB_APP_TEMP_SIZE & 0xff;
 
-  // XXX Need to handle transmit success and failure.
-  // XXX Need to return to listen mode.
   /* For now, assume the sender is listening on the boot adress. */
   nordic_set_tx_addr(boot_address, sizeof(boot_address));
   nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
@@ -361,11 +359,20 @@ process_incoming_data(void) {
 void
 loop(void) {
   char b;
+  uint8_t status;
 
   if (nordic_interrupt) {
     nordic_interrupt = 0;
-    nordic_process_interrupt();
-    process_incoming_data();
+    status = nordic_process_interrupt();
+
+    if (status & (_BV(MAX_RT) | _BV(TX_DS))) {
+      /* Transmit is complete, return to listening mode. */
+      /* Ignore transmit failures, just wait for the sender to re-request. */
+      nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
+      nordic_start_listening();
+    } else if (status & _BV(RX_DR)) {
+      process_incoming_data();
+    }
   }
 
   /* To keep us from getting stuck. */

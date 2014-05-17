@@ -179,7 +179,6 @@ send_device_info(void) {
   nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
   nordic_print_radio_config();
   nordic_write_data(data, sizeof(data));
-  nordic_print_radio_config();
 }
 
 #define DEBUG_CRC 0

@@ -697,6 +697,10 @@ nordic_process_interrupt(void) {
       /* Set the clear bits for the next round. */
       clear_bits = _BV(RX_DR);
     }
+
+  } else {
+    /* No receive data, so we have to clear the interrupts. */
+    nordic_write_register(STATUS, &clear_bits, 1);
   }
 
   return(return_status);

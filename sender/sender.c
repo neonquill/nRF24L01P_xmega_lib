@@ -270,8 +270,10 @@ loop(void) {
     status = nordic_process_interrupt();
     if (status & _BV(MAX_RT)) {
       serial_write_string("fail\r\n");
+      nordic_start_listening();
     } else if (status & _BV(TX_DS)) {
       serial_write_string("success\r\n");
+      nordic_start_listening();
     } else if (status & _BV(RX_DR)) {
       process_incoming_data();
     }

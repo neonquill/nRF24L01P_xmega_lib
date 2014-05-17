@@ -113,13 +113,13 @@ setup_clock(void) {
 
 void
 nordic_setup(void) {
-  uint8_t address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
-  uint8_t address2[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
+  uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
+  uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
   nordic_init();
   nordic_set_channel(1);
-  nordic_setup_pipe(0, address, 5, 1, VARIABLE_PAYLOAD_LEN);
+  nordic_setup_pipe(0, broadcast_address, 5, 1, VARIABLE_PAYLOAD_LEN);
   /* Set up a second pipe to receive firmware updates. */
-  nordic_setup_pipe(1, address2, 5, 1, VARIABLE_PAYLOAD_LEN);
+  nordic_setup_pipe(1, boot_address, 5, 1, VARIABLE_PAYLOAD_LEN);
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...

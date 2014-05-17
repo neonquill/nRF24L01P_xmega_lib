@@ -204,6 +204,29 @@ process_serial(char b) {
 }
 
 void
+process_incoming_data(void) {
+  uint8_t i;
+  struct packet_data *packet;
+  char txt[32];
+
+  while (1) {
+    packet = nordic_get_packet();
+    if (packet == NULL) {
+      break;
+    }
+
+    snprintf(txt, sizeof(txt), "R(%d,%d): %d", packet->len, packet->pipe,
+             packet->data[0]);
+    serial_write_string(txt);
+    for (i = 1; i < packet->len; i++) {
+      snprintf(txt, 32, ",%d", packet->data[i]);
+      serial_write_string(txt);
+    }
+    serial_write_string("\r\n");
+  }
+}
+
+void
 setup(void) {
   setup_clock();
 
@@ -246,20 +269,10 @@ loop(void) {
       serial_write_string("fail\r\n");
     } else if (status & _BV(TX_DS)) {
       serial_write_string("success\r\n");
+    } else if (status & _BV(RX_DR)) {
+      process_incoming_data();
     }
   }
-
-#if 0
-  if (nordic_data_ready()) {
-    len = 3;
-    status = nordic_get_data(data, &len);
-    snprintf(txt, 32, "0x%x * %d,%d,%d\r\n", status, data[0], data[1], data[2]);
-    serial_write_string(txt);
-
-    nordic_clear_interrupts();
-    nordic_flush_tx_fifo();
-  }
-#endif
 
   //nordic_print_radio_config();
 

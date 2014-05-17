@@ -382,7 +382,9 @@ loop(void) {
       nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
       nordic_print_radio_config();
       nordic_start_listening();
-    } else if (status & _BV(RX_DR)) {
+    }
+
+    if (status & _BV(RX_DR)) {
       process_incoming_data();
     }
   }

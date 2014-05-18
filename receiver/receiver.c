@@ -265,9 +265,8 @@ process_data(uint8_t data[], uint8_t len) {
 
   } else if (data[0] == 's') {
     /* Respond with the device id, memory size, and page size. */
-    serial_write_string("s start\r\n");
+    serial_write_string("s\r\n");
     send_device_info();
-    serial_write_string("s end\r\n");
 
   } else if (data[0] == 'w') {
     serial_write_string("w\r\n");

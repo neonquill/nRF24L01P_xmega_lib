@@ -379,7 +379,6 @@ loop(void) {
 
       /* Transmit is complete, return to listening mode. */
       nordic_set_rx_addr(broadcast_address, sizeof(broadcast_address), 0);
-      nordic_print_radio_config();
       nordic_start_listening();
     }
 

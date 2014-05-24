@@ -277,7 +277,7 @@ nordic_get_status(void) {
  * Initialize the nordic library.
  */
 void
-nordic_init(void) {
+nordic_init(enum ack_payload_state ack_payload) {
   // SPI Mode 0.
   // Most Significant Bit first.
   // For data, least significant byte first.
@@ -288,6 +288,12 @@ nordic_init(void) {
   config = _BV(EN_CRC);
   nordic_config_register(CONFIG, config);
   radio_state = POWER_DOWN;
+
+  if (ack_payload == ENABLE_ACK_PAYLOAD) {
+    /* Turn on ack payloads. */
+    feature |= _BV(EN_ACK_PAY);
+    nordic_config_register(FEATURE, feature);
+  }
 
   // Make sure any pending data is flushed.
   nordic_flush_tx_fifo();
@@ -588,6 +594,31 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
 
   // Turn off chip enable, causing to go back to sleep after the transfer.
   nordic_ce_low();
+}
+
+/**
+ * Set the ack payload.
+ *
+ * @param[in] buf  Pointer to the buffer to store the data in.
+ * @param[in] len  Number of bytes to transfer.
+ * @param[in] pipe  The pipe to set the ack on.
+ *
+ * @return  The value of the status register.
+ */
+uint8_t
+nordic_set_ack_payload(uint8_t *buf, uint8_t len, uint8_t pipe) {
+  uint8_t status;
+
+  nordic_cs_low();
+
+  status = spi_transfer(W_ACK_PAYLOAD + pipe);
+  for (; len > 0; len--, buf++) {
+    spi_transfer(*buf);
+  }
+
+  nordic_cs_high();
+
+  return(status);
 }
 
 /**

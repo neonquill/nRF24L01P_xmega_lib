@@ -112,7 +112,7 @@ static uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
 
 void
 nordic_setup(void) {
-  nordic_init();
+  nordic_init(ENABLE_ACK_PAYLOAD);
   nordic_set_channel(1);
   nordic_setup_pipe(0, boot_address, sizeof(boot_address), 1,
                     VARIABLE_PAYLOAD_LEN);
@@ -178,6 +178,17 @@ process_serial(char b) {
       next_index = 0;
       return;
     }
+
+  } else if (buffer[0] == 'A') {
+    /* Assume addresses are always 5 bytes long. */
+    if (next_index <= 5) {
+      return;
+    }
+
+    nordic_set_tx_addr((uint8_t *)&buffer[1], 5);
+    nordic_set_rx_addr((uint8_t *)&buffer[1], 5, 0);
+    serial_write_string("Changed address.\r\n");
+    next_index = 0;
 
   } else if (buffer[0] == 'p') {
     if (next_index <= 1) {

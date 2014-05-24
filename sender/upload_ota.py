@@ -131,7 +131,17 @@ def read_data(config):
 
     return (raw_data, crc)
 
+def set_address(ser, address):
+    data = [int(b, 16) for b in address.split(':')]
+    cmd = b'A' + struct.pack('B' * 5, *data)
+    ser.write(cmd)
+    line = ser.readline().strip()
+    print("#Raw: ", line)
+
 def get_device_info(config, ser):
+    print("Switching to info address.")
+    set_address(ser, config.info_addr)
+
     for send_count in range(10):
         #print("Sending 's'")
         send_packet(ser, b"s")
@@ -246,6 +256,12 @@ def get_config(argv):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--partno', '-p',
                         help = 'AVR device.')
+    parser.add_argument('--boot_addr', '-b',
+                        default = '3e:3e:3e:3e:3e',
+                        help = 'Remote boot upload address.')
+    parser.add_argument('--info_addr', '-i',
+                        default = '3e:3e:3e:3e:24',
+                        help = 'Remote device info address.')
     parser.add_argument('filename',
                         help = 'Hex file containing the firmware.')
 
@@ -261,6 +277,7 @@ def main(argv = None):
 
     ser = serial_connect(config)
     get_device_info(config, ser)
+    set_address(ser, config.boot_addr)
     (raw_data, crc) = read_data(config)
     send_data(config, ser, raw_data, crc)
 

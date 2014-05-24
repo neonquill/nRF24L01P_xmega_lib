@@ -5,6 +5,11 @@ enum {
   VARIABLE_PAYLOAD_LEN = 0xff
 };
 
+enum ack_payload_state {
+  NO_ACK_PAYLOAD,
+  ENABLE_ACK_PAYLOAD,
+};
+
 enum nordic_state {
   /* Powered down. */
   POWER_DOWN,
@@ -50,7 +55,7 @@ struct packet_data {
   uint8_t data[32];
 };
 
-void nordic_init(void);
+void nordic_init(enum ack_payload_state ack_payload);
 void nordic_set_channel(uint8_t channel);
 uint8_t nordic_set_rx_addr(uint8_t *addr, uint8_t addr_len, uint8_t pipe);
 void nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
@@ -60,6 +65,7 @@ void nordic_start_listening(void);
 void nordic_stop_listening(void);
 
 void nordic_write_data(uint8_t *buf, uint8_t len);
+uint8_t nordic_set_ack_payload(uint8_t *buf, uint8_t len, uint8_t pipe);
 
 uint8_t nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len);
 uint8_t nordic_data_ready(uint8_t status);

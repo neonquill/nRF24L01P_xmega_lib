@@ -110,16 +110,44 @@ setup_clock(void) {
   DFLLRC32M.CTRL = DFLL_ENABLE_bm;
 }
 
+/**
+ * Set device info needed to correctly program the chip.
+ * This will be be sent for the auto-ack on pipe 2.
+ */
+void
+set_device_info(void) {
+  uint8_t data[8];
+
+  /* Message identifier. */
+  data[0] = 's';
+  /* Three bytes of the device id. */
+  data[1] = SIGNATURE_2;
+  data[2] = SIGNATURE_1;
+  data[3] = SIGNATURE_0;
+  /* Two bytes of the device page size. */
+  data[4] = (SPM_PAGESIZE >> 8) & 0xff;
+  data[5] = SPM_PAGESIZE & 0xff;
+  /* Two bytes of the xboot app size. */
+  data[6] = (XB_APP_SIZE >> 8) & 0xff;
+  data[7] = XB_APP_TEMP_SIZE & 0xff;
+
+  nordic_set_ack_payload(data, sizeof(data), 2);
+}
+
 static uint8_t broadcast_address[5] = {0xe7, 0xe7, 0xe7, 0xe7, 0xe7};
 static uint8_t boot_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x3e};
+static uint8_t info_address[5] = {0x3e, 0x3e, 0x3e, 0x3e, 0x24};
 
 void
 nordic_setup(void) {
-  nordic_init();
+  nordic_init(ENABLE_ACK_PAYLOAD);
   nordic_set_channel(1);
   nordic_setup_pipe(0, broadcast_address, 5, 1, VARIABLE_PAYLOAD_LEN);
   /* Set up a second pipe to receive firmware updates. */
   nordic_setup_pipe(1, boot_address, 5, 1, VARIABLE_PAYLOAD_LEN);
+  /* Set up a third pipe to receive firmware updates. */
+  nordic_setup_pipe(2, &info_address[4], 1, 1, VARIABLE_PAYLOAD_LEN);
+  set_device_info();
 
 #ifdef SERIAL_DEBUG
   // XXX Delay so serial write works correctly...
@@ -152,33 +180,6 @@ setup(void) {
   /* Set up the nordic radio. */
   nordic_setup();
   nordic_start_listening();
-}
-
-/**
- * Send device info needed to correctly program the chip.
- */
-void
-send_device_info(void) {
-  uint8_t data[8];
-
-  /* Message identifier. */
-  data[0] = 's';
-  /* Three bytes of the device id. */
-  data[1] = SIGNATURE_2;
-  data[2] = SIGNATURE_1;
-  data[3] = SIGNATURE_0;
-  /* Two bytes of the device page size. */
-  data[4] = (SPM_PAGESIZE >> 8) & 0xff;
-  data[5] = SPM_PAGESIZE & 0xff;
-  /* Two bytes of the xboot app size. */
-  data[6] = (XB_APP_SIZE >> 8) & 0xff;
-  data[7] = XB_APP_TEMP_SIZE & 0xff;
-
-  /* For now, assume the sender is listening on the boot adress. */
-  nordic_set_tx_addr(boot_address, sizeof(boot_address));
-  nordic_set_rx_addr(boot_address, sizeof(boot_address), 0);
-  nordic_print_radio_config();
-  nordic_write_data(data, sizeof(data));
 }
 
 #define DEBUG_CRC 0
@@ -263,11 +264,6 @@ process_data(uint8_t data[], uint8_t len) {
     page_committed = 1;
     buffer_offset = 0;
 
-  } else if (data[0] == 's') {
-    /* Respond with the device id, memory size, and page size. */
-    serial_write_string("s\r\n");
-    send_device_info();
-
   } else if (data[0] == 'w') {
     serial_write_string("w\r\n");
 
@@ -351,6 +347,10 @@ process_incoming_data(void) {
 
     if (pipe == 1) {
       process_data(packet->data, packet->len);
+    } else if (pipe == 2) {
+      serial_write_string("Got info packet.\r\n");
+      /* Reset the ack payload. */
+      set_device_info();
     }
 
     //nordic_flush_tx_fifo();

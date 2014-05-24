@@ -278,13 +278,17 @@ nordic_get_status(void) {
  */
 void
 nordic_init(enum ack_payload_state ack_payload) {
-  // SPI Mode 0.
-  // Most Significant Bit first.
-  // For data, least significant byte first.
+  /*
+   * SPI Mode 0.
+   * Most Significant Bit first.
+   * For data, least significant byte first.
+   */
   spi_init();
 
-  // Reset radio to default configuration values.
-  // All interrupts enabled, CRC on, 1 byte, powered down, transmit mode.
+  /*
+   * Reset radio to default configuration values.
+   * All interrupts enabled, CRC on, 1 byte, powered down, transmit mode.
+   */
   config = _BV(EN_CRC);
   nordic_config_register(CONFIG, config);
   radio_state = POWER_DOWN;
@@ -295,7 +299,7 @@ nordic_init(enum ack_payload_state ack_payload) {
     nordic_config_register(FEATURE, feature);
   }
 
-  // Make sure any pending data is flushed.
+  /* Make sure any pending data is flushed. */
   nordic_flush_tx_fifo();
   nordic_flush_rx_fifo();
   nordic_clear_interrupts();
@@ -382,17 +386,17 @@ nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
 
   nordic_set_rx_addr(addr, addr_len, pipe);
 
-  // Update the bitmask of enabled addresses.
+  /* Update the bitmask of enabled addresses. */
   en_rxaddr |= _BV(pipe);
   nordic_config_register(EN_RXADDR, en_rxaddr);
 
-  // Update the bitmask of auto-acknowledge flags.
+  /* Update the bitmask of auto-acknowledge flags. */
   if (enable_aa) {
     en_aa |= _BV(pipe);
   }
   nordic_config_register(EN_AA, en_aa);
 
-  // Set up the payload lengths.
+  /* Set up the payload lengths. */
   pipe_payload_len[pipe] = payload_len;
   if (payload_len == VARIABLE_PAYLOAD_LEN) {
     dynpd |= _BV(pipe);
@@ -411,7 +415,7 @@ nordic_setup_pipe(uint8_t pipe, uint8_t *addr, uint8_t addr_len,
  */
 void
 nordic_disable_pipe(uint8_t pipe) {
-  // Update the bitmask of enabled addresses.
+  /* Update the bitmask of enabled addresses. */
   en_rxaddr &= (uint8_t)~_BV(pipe);
   nordic_config_register(EN_RXADDR, en_rxaddr);
 }
@@ -499,12 +503,12 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
   serial_write_string(txt);
 #endif
 
-  // The status register says which pipe the first packet came from.
+  /* The status register says which pipe the first packet came from. */
   pipe = (status >> 1) & 0x7;
   payload_length = pipe_payload_len[pipe];
   packet->pipe = pipe;
 
-  // XXX If we're using dynamic payload length, need to check the length.
+  /* If we're using dynamic payload length, need to check the length. */
   if ((feature & _BV(EN_DPL)) && (payload_length == VARIABLE_PAYLOAD_LEN)) {
     nordic_cs_low();
     spi_transfer(R_RX_PL_WID);
@@ -522,7 +526,7 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
 #endif
   }
 
-  // If it's larger than 32 bytes, flusth the RX FIFO.
+  /* If the payload is larger than 32 bytes, flusth the RX FIFO. */
   if (payload_length > 32) {
     nordic_cs_low();
     spi_transfer(FLUSH_RX);
@@ -534,7 +538,7 @@ nordic_read_packet(uint8_t status, struct packet_data *packet) {
     return(0);
   }
 
-  // Read the payload.
+  /* Read the payload. */
   nordic_cs_low();
   spi_transfer(R_RX_PAYLOAD);
   for (i = 0, buf = packet->data; i < payload_length; i++) {
@@ -582,17 +586,16 @@ nordic_write_data(uint8_t *buf, uint8_t len) {
   /* Switch to transmit mode. */
   nordic_transmit_standby();
 
-  // Transfer the payload to the radio.
+  /* Transfer the payload to the radio. */
   nordic_transfer_payload(buf, len);
 
-  // Set chip enable high to actually start the transfer.
+  /* Set chip enable high to actually start the transfer. */
   nordic_ce_high();
 
-  // Delay at least 10us to make sure we transmit.
-  // XXX Eventually, might want to check status...
+  /* Delay at least 10us to make sure we transmit. */
   _delay_us(15);
 
-  // Turn off chip enable, causing to go back to sleep after the transfer.
+  /* Turn off chip enable, causing to go back to sleep after the transfer. */
   nordic_ce_low();
 }
 

@@ -145,7 +145,7 @@ nordic_setup(void) {
   nordic_setup_pipe(0, broadcast_address, 5, 1, VARIABLE_PAYLOAD_LEN);
   /* Set up a second pipe to receive firmware updates. */
   nordic_setup_pipe(1, boot_address, 5, 1, VARIABLE_PAYLOAD_LEN);
-  /* Set up a third pipe to receive firmware updates. */
+  /* Set up a third pipe to receive info requests. */
   nordic_setup_pipe(2, &info_address[4], 1, 1, VARIABLE_PAYLOAD_LEN);
   set_device_info();
 

@@ -159,7 +159,6 @@ process_serial(char b) {
     if (next_index > buffer[1] + 1) {
       /* To keep us from getting stuck. */
       nordic_flush_tx_fifo();
-      nordic_clear_interrupts();
 
 #if DEBUG_PACKET_BYTES
       snprintf(txt, 32, "sent %d: ", buffer[1]);
@@ -298,7 +297,6 @@ loop(void) {
 #if 0
   /* To keep us from getting stuck. */
   nordic_flush_tx_fifo();
-  nordic_clear_interrupts();
 
   data[0] = 33;
   data[1] = count;

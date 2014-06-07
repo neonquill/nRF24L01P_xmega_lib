@@ -127,6 +127,20 @@ nordic_read_register(uint8_t address, uint8_t *value, uint8_t len) {
 }
 
 /**
+ * Clear all interrupts.
+ *
+ * @return The value of the status register.
+ */
+static uint8_t
+nordic_clear_interrupts(void) {
+  uint8_t clear_bits = _BV(MAX_RT) | _BV(TX_DS) | _BV(RX_DR);
+  uint8_t status;
+
+  status = nordic_write_register(STATUS, &clear_bits, 1);
+  return(status);
+}
+
+/**
  * Power down the radio.
  *
  * @return Boolean, true if successful.
@@ -600,21 +614,6 @@ nordic_set_ack_payload(uint8_t *buf, uint8_t len, uint8_t pipe) {
 
   nordic_cs_high();
 
-  return(status);
-}
-
-/**
- * Clear all interrupts.
- *
- * @return The value of the status register.
- */
-// XXX Probably shouldn't be an externally visable call.
-uint8_t
-nordic_clear_interrupts(void) {
-  uint8_t clear_bits = _BV(MAX_RT) | _BV(TX_DS) | _BV(RX_DR);
-  uint8_t status;
-
-  status = nordic_write_register(STATUS, &clear_bits, 1);
   return(status);
 }
 

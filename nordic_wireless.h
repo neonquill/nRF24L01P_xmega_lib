@@ -77,7 +77,6 @@ uint8_t nordic_process_interrupt(void);
 #ifdef SERIAL_DEBUG
 void nordic_print_radio_config(void);
 #endif
-uint8_t nordic_clear_interrupts(void);
 void nordic_flush_tx_fifo(void);
 void nordic_flush_rx_fifo(void);
 

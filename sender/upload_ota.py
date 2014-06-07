@@ -246,7 +246,10 @@ def get_part_config(config):
     # XXX Could just read the avrdude config for this.
     parts = {'atxmega32a4u': {'device_id': (0x41, 0x95, 0x1E),
                               'app_section_size': 32768,
-                              'page_size': 256}}
+                              'page_size': 256},
+             'atxmega128a4u': {'device_id': (0x46, 0x97, 0x1E),
+                               'app_section_size': 131072,
+                               'page_size': 256}}
 
     part = parts[config.partno]
     for key in part.keys():

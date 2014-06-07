@@ -303,7 +303,7 @@ nordic_init(enum ack_payload_state ack_payload) {
   nordic_flush_rx_fifo();
   nordic_clear_interrupts();
 
-  // XXX Disable all reading channels.
+  // XXX Disable all reading channels?
 }
 
 /**
@@ -454,26 +454,6 @@ nordic_set_tx_addr(uint8_t *addr, uint8_t addr_len) {
   status = nordic_write_register(TX_ADDR, addr, addr_len);
   return(status);
 }
-
-/**
- * Check to see if there is data ready to be read.
- * XXX Delete this?
- */
-uint8_t
-nordic_data_ready(uint8_t status) {
-  return((status & _BV(RX_DR)) != 0);
-}
-
-#if 0
-XXX This might not be correct.
-uint8_t
-nordic_rx_fifo_empty(void) {
-  uint8_t fifo_status;
-
-  nordic_read_register(FIFO_STATUS, &fifo_status, 1);
-  return((fifo_status & _BV(RX_EMPTY)) == 0);
-}
-#endif
 
 #define DEBUG_READ 0
 

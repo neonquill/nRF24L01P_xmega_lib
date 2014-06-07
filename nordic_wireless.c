@@ -6,6 +6,7 @@
 #include "nRF24L01P.h"
 #include "nordic_wireless.h"
 #include "xmega_lib/serial.h"
+#include "config.h"
 
 #include "nordic_wireless.h"
 
@@ -22,13 +23,12 @@ static uint8_t pipe_payload_len[6] = {0};
 /* Keep track of the state of the radio. */
 static enum nordic_state radio_state;
 
-// XXX Need to pass in the chip select pin into this library.
 /**
  * Simple wrapper to set the nordic chip select pin low.
  */
 static void
 nordic_cs_low(void) {
-  PORTA.OUTCLR = PIN6_bm;
+  NORDIC_CS_PORT(OUTCLR) = NORDIC_CS_PIN;
 }
 
 /**
@@ -36,16 +36,15 @@ nordic_cs_low(void) {
  */
 static void
 nordic_cs_high(void) {
-  PORTA.OUTSET = PIN6_bm;
+  NORDIC_CS_PORT(OUTSET) = NORDIC_CS_PIN;
 }
 
-// XXX Need to pass in the chip enable pin into this library.
 /**
  * Simple wrapper to set the nordic chip enable pin low.
  */
 static void
 nordic_ce_low(void) {
-  PORTA.OUTCLR = PIN5_bm;
+  NORDIC_CE_PORT(OUTCLR) = NORDIC_CE_PIN;
 }
 
 /**
@@ -53,7 +52,7 @@ nordic_ce_low(void) {
  */
 static void
 nordic_ce_high(void) {
-  PORTA.OUTSET = PIN5_bm;
+  NORDIC_CE_PORT(OUTSET) = NORDIC_CE_PIN;
 }
 
 /**

@@ -161,7 +161,8 @@ def get_device_info(config, ser):
                 msg_id = raw_data[0]
                 device_id = (raw_data[1], raw_data[2], raw_data[3])
                 page_size = raw_data[4]
-                app_size = raw_data[5]
+                app_size_pages = raw_data[5]
+                app_size = app_size_pages * page_size
 
                 if msg_id != b's':
                     error = "Invalid message id! ({} != s)".format(msg_id)

@@ -117,6 +117,7 @@ setup_clock(void) {
 void
 set_device_info(void) {
   uint8_t data[8];
+  uint16_t tmp;
 
   /* Message identifier. */
   data[0] = 's';
@@ -127,9 +128,10 @@ set_device_info(void) {
   /* Two bytes of the device page size. */
   data[4] = (SPM_PAGESIZE >> 8) & 0xff;
   data[5] = SPM_PAGESIZE & 0xff;
-  /* Two bytes of the xboot app size. */
-  data[6] = (XB_APP_SIZE >> 8) & 0xff;
-  data[7] = XB_APP_TEMP_SIZE & 0xff;
+  /* Two bytes of the xboot app size (in pages). */
+  tmp = XB_APP_SIZE / SPM_PAGESIZE;
+  data[6] = (tmp >> 8) & 0xff;
+  data[7] = tmp & 0xff;
 
   nordic_set_ack_payload(data, sizeof(data), 2);
 }

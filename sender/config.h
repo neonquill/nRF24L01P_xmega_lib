@@ -15,4 +15,7 @@
 #define NORDIC_CE_PORT(op) PORTA_##op
 #define NORDIC_CE_PIN PIN5_bm
 
+/* USART for the nordic chip. Used in spi.c */
+#define NORDIC_USART(op) USARTD0_##op
+
 #endif /* CONFIG_H */
